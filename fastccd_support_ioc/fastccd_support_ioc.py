@@ -19,6 +19,7 @@ class FCCDSupport(PVGroup):
 
     async def fccd_shutdown(self, instance, value):
         # Note: all the fccd scripts are injected into the utils module; you can call them like so:
+
         print("shutting down")
         utils.scripts.auto_power_down_script()
 
@@ -45,5 +46,5 @@ class FCCDSupport(PVGroup):
 
         return value
 
-    initialize = pvproperty(value=0, dtype=int)
+    initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
