@@ -5,8 +5,8 @@
 SPHINXOPTS    =
 SPHINXBUILD   = python -msphinx
 SPHINXPROJ    = fastccd_support_ioc
-SOURCEDIR     = .
-BUILDDIR      = _build
+SOURCEDIR     = src
+BUILDDIR      = .
 
 # Put it first so that "make" without argument is like "make help".
 help:

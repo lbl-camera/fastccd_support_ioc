@@ -1,5 +1,5 @@
 Welcome to FastCCD Support IOC's documentation!
-======================================
+===============================================
 
 .. toctree::
    :maxdepth: 2
