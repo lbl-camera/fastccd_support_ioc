@@ -1,0 +1,2 @@
+./tempMonitor-notxt.sh | tee TemperatureData/<date-filename>
+

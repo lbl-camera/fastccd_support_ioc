@@ -1,0 +1,70 @@
+# Bias settings File (Do not edit this line)
+#
+#
+# There are 20 Bias Voltages to be set
+# There are 5 DACs with 4 outputs each.
+# The DACs are daisy chanined so which DAC you are writting is determined by the word position.
+# Each DAC is a 16 bit number.
+# The 2 MS bits determine which of the 4 outpus in a specific DAC is written
+# and the LS 12 bits are the DAC value
+#
+8200 0000
+8201 0e13
+8001 0102
+8200 0002
+8201 4614
+8001 0102
+8200 0004
+8201 8000
+8001 0102
+8200 0006
+8201 ca13
+8001 0102
+8200 0008
+8201 07ad
+8001 0102
+8200 000a
+8201 47ad
+8001 0102
+8200 000c
+8201 8947
+8001 0102
+8200 000e
+8201 c2e1
+8001 0102
+8200 0010
+8201 0614
+8001 0102
+8200 0012
+8201 4333
+8001 0102
+8200 0014
+8201 8947
+8001 0102
+8200 0016
+8201 c2e1
+8001 0102
+8200 0018
+8201 0814
+8001 0102
+8200 001a
+8201 4666
+8001 0102
+8200 001c
+8201 8e65
+8001 0102
+8200 001e
+8201 cf5b
+8001 0102
+8200 0020
+8201 0000
+8001 0102
+8200 0022
+8201 4000
+8001 0102
+8200 0024
+8201 8000
+8001 0102
+8200 0026
+8201 c000
+8001 0102
