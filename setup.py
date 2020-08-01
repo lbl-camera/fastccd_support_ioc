@@ -37,6 +37,9 @@ setup(
             'fastccd_support_ioc=fastccd_support_ioc.cli:main',
         ],
     },
+    extras_require={
+        "docs": ["sphinx", "recommonmark", "sphinx_bootstrap_theme", ],
+    },
     install_requires=requirements,
     license="BSD license",
     long_description=readme + '\n\n' + history,
