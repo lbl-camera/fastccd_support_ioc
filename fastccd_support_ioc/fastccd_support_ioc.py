@@ -1,11 +1,14 @@
 from caproto.server import PVGroup, pvproperty, SubGroup, get_pv_pair_wrapper
 from caproto import ChannelType
 from . import utils
-import os
+import subprocess
 
 
-def ibterm(command):
-    os.system(f'ssh cosmic@bl7011ioc1.dhcp.lbl.gov ibterm -d 15 <<< "{command}"')
+def ibterm(command, caster=None):
+    command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
+    stdout = subprocess.check_output(command, shell=True)
+    if caster:
+        return caster(stdout.decode().split("\n")[2].strip("ibterm>"))
 
 
 pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
@@ -13,6 +16,10 @@ pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
 
 
 class DelayGenerator(PVGroup):
+    """
+    An IOC for the [something something] delay generator.
+    """
+
     trigger_rate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
 
     # trigger_mode = pvproperty_with_rbv("TriggerMode")
@@ -25,7 +32,7 @@ class DelayGenerator(PVGroup):
 
     @trigger_rate.readback.getter
     async def trigger_rate(obj, instance):
-        return ibterm(f"tr 0")
+        return ibterm(f"tr 0", float)
 
 
 class FCCDSupport(PVGroup):
