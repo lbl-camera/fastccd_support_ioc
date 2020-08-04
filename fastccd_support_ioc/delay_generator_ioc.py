@@ -1,4 +1,4 @@
-from caproto.server import PVGroup, get_pv_pair_wrapper
+from caproto.server import PVGroup, get_pv_pair_wrapper, conversion
 import subprocess
 from textwrap import dedent
 import sys
@@ -43,6 +43,9 @@ def main():
         default_prefix='XF:7011:',
         desc=dedent(DelayGenerator.__doc__))
     ioc = DelayGenerator(**ioc_options)
+
+    print("#" * 80, conversion.group_to_device(ioc), "#" * 80, sep='\n')
+
     run(ioc.pvdb, **run_options)
 
     return 0
