@@ -19,22 +19,20 @@ test_requirements = ['pytest>=3', ]
 setup(
     author="Ronald J Pandolfi",
     author_email='ronpandolfi@lbl.gov',
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
     description="A caproto-based IOC for initializing and shutting down the FastCCD camera.",
     entry_points={
         'console_scripts': [
-            'fastccd_support_ioc=fastccd_support_ioc.cli:main',
+            'fastccd_support_ioc=fastccd_support_ioc.fastccd_support_ioc:main',
+            'delay_generator_ioc=fastccd_support_ioc.delay_generator_ioc:main'
         ],
     },
     extras_require={
