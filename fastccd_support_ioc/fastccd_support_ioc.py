@@ -1,21 +1,34 @@
-from caproto.server import PVGroup, pvproperty
+from caproto.server import PVGroup, pvproperty, SubGroup, get_pv_pair_wrapper
 from caproto import ChannelType
 from . import utils
+import os
+
+
+def ibterm(command):
+    os.system(f'ssh cosmic@bl7011ioc1.dhcp.lbl.gov ibterm -d 15 <<< "{command}"')
+
+
+pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
+                                          readback_suffix='_RBV')
+
+
+class DelayGenerator(PVGroup):
+    trigger_rate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
+
+    # trigger_mode = pvproperty_with_rbv("TriggerMode")
+    # trigger_enabled = pvproperty_with_rbv("TriggerEnabled")
+
+    @trigger_rate.setpoint.putter
+    async def trigger_rate(obj, instance, value):
+        ibterm(f"tr 0,{value}")
+        # await obj.readback.write(value)
+
+    @trigger_rate.readback.getter
+    async def trigger_rate(obj, instance):
+        return ibterm(f"tr 0")
 
 
 class FCCDSupport(PVGroup):
-    """
-    An IOC with three uncoupled read/writable PVs
-
-    Scalar PVs
-    ----------
-    A (int)
-    B (float)
-
-    Vectors PVs
-    -----------
-    C (vector of int)
-    """
 
     async def fccd_shutdown(self, instance, value):
         # Note: all the fccd scripts are injected into the utils module; you can call them like so:
@@ -48,3 +61,12 @@ class FCCDSupport(PVGroup):
 
     initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
+
+
+class SupportIOC(PVGroup):
+    """
+    A support IOC for the LBL FastCCD, including options to configure a delay generator for shuttering
+    """
+
+    delay_generator = SubGroup(DelayGenerator, prefix='DelayGenerator:')
+    fastccd_support = SubGroup(FCCDSupport, prefix='FastCCD:')
