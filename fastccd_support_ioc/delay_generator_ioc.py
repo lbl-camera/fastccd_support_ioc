@@ -1,4 +1,4 @@
-from caproto.server import PVGroup, get_pv_pair_wrapper, conversion
+from caproto.server import PVGroup, get_pv_pair_wrapper, conversion, pvproperty
 import subprocess
 from textwrap import dedent
 import sys
@@ -26,19 +26,19 @@ class DelayGenerator(PVGroup):
     """
 
     trigger_rate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
-    trigger_mode = pvproperty_with_rbv(dtype=int, doc="TriggerMode")
+    trigger_on_off = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF")
     delay_time = pvproperty_with_rbv(dtype=float, doc="DelayTime")
     shutter_time =  pvproperty_with_rbv(dtype=float, doc="ShutterTime")
-    output_offset = pvproperty_with_rbv(dtype=int, doc="OutputOffset")
 
-    @output_offset.setpoint.putter
-    async def output_offset(obj, instance, offset):
-        ibterm(f"oo 1,{offset}")
-        # await obj.readback.write(value)
+    #additional PVs only used for setup
+    setup = pvproperty(dtype=float, doc="Setup")
+    #output_offset = pvproperty_with_rbv(dtype=int, doc="OutputOffset")
 
-    @output_offset.readback.getter
-    async def output_offset(obj, instance):
-        return ibterm(f"oo 1", int)
+
+    @setup.setpoint.putter
+    async def setup(obj, instance):
+        ibterm(f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,3.3; OO 1,0; TR 0,5")
+
 
     @trigger_rate.setpoint.putter
     async def trigger_rate(obj, instance, rate):
@@ -49,13 +49,16 @@ class DelayGenerator(PVGroup):
     async def trigger_rate(obj, instance):
         return ibterm(f"tr 0", float)
 
-    @trigger_mode.setpoint.putter
-    async def trigger_mode(obj, instance, rate):
-        ibterm(f"tm {rate}")
+    @trigger_on_off.setpoint.putter
+    async def trigger_on_off(obj, instance, boolean):
+        if boolean == 0:
+            ibterm(f"tm 2")
+        if boolean == 1:
+            ibterm(f"tm 0")
         # await obj.readback.write(value)
 
-    @trigger_mode.readback.getter
-    async def trigger_mode(obj, instance):
+    @trigger_on_off.readback.getter
+    async def trigger_on_off(obj, instance):
         return ibterm(f"tm", int)
 
     @delay_time.setpoint.putter
@@ -75,6 +78,19 @@ class DelayGenerator(PVGroup):
     @shutter_time.readback.getter
     async def shutter_time(obj, instance):
         return ibterm(f"dt 3", float)
+
+
+    #additional PVs only used for setup
+    # @output_offset.setpoint.putter
+    # async def output_offset(obj, instance, offset):
+    #     ibterm(f"oo 1,{offset}")
+    #     # await obj.readback.write(value)
+    #
+    # @output_offset.readback.getter
+    # async def output_offset(obj, instance):
+    #     return ibterm(f"oo 1", int)
+
+
 
 def main():
     """Console script for fastccd_support_ioc."""
