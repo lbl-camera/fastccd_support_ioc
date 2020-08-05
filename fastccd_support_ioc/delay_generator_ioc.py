@@ -26,18 +26,18 @@ class DelayGenerator(PVGroup):
     """
 
     trigger_rate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
-    trigger_on_off = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF")
-    delay_time = pvproperty_with_rbv(dtype=float, doc="DelayTime")
-    shutter_time =  pvproperty_with_rbv(dtype=float, doc="ShutterTime")
+    # trigger_on_off = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF")
+    # delay_time = pvproperty_with_rbv(dtype=float, doc="DelayTime")
+    # shutter_time =  pvproperty_with_rbv(dtype=float, doc="ShutterTime")
 
     #additional PVs only used for setup
-    setup = pvproperty(dtype=float, doc="Setup")
+    # setup = pvproperty(dtype=float, doc="Setup")
     #output_offset = pvproperty_with_rbv(dtype=int, doc="OutputOffset")
 
 
-    @setup.setpoint.putter
-    async def setup(obj, instance):
-        ibterm(f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,3.3; OO 1,0; TR 0,5")
+    # @setup.setpoint.putter
+    # async def setup(obj, instance):
+    #     ibterm(f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,3.3; OO 1,0; TR 0,5")
 
 
     @trigger_rate.setpoint.putter
@@ -49,35 +49,35 @@ class DelayGenerator(PVGroup):
     async def trigger_rate(obj, instance):
         return ibterm(f"tr 0", float)
 
-    @trigger_on_off.setpoint.putter
-    async def trigger_on_off(obj, instance, boolean):
-        if boolean == 0:
-            ibterm(f"tm 2")
-        if boolean == 1:
-            ibterm(f"tm 0")
-        # await obj.readback.write(value)
-
-    @trigger_on_off.readback.getter
-    async def trigger_on_off(obj, instance):
-        return ibterm(f"tm", int)
-
-    @delay_time.setpoint.putter
-    async def delay_time(obj, instance, rate):
-        ibterm(f"dt 2,1,{rate}")
-        # await obj.readback.write(value)
-
-    @delay_time.readback.getter
-    async def delay_time(obj, instance):
-        return ibterm(f"dt 2", float)
-
-    @shutter_time.setpoint.putter
-    async def shutter_time(obj, instance, rate):
-        ibterm(f"dt 3,2,{rate}")
-        # await obj.readback.write(value)
-
-    @shutter_time.readback.getter
-    async def shutter_time(obj, instance):
-        return ibterm(f"dt 3", float)
+    # @trigger_on_off.setpoint.putter
+    # async def trigger_on_off(obj, instance, boolean):
+    #     if boolean == 0:
+    #         ibterm(f"tm 2")
+    #     if boolean == 1:
+    #         ibterm(f"tm 0")
+    #     # await obj.readback.write(value)
+    #
+    # @trigger_on_off.readback.getter
+    # async def trigger_on_off(obj, instance):
+    #     return ibterm(f"tm", int)
+    #
+    # @delay_time.setpoint.putter
+    # async def delay_time(obj, instance, rate):
+    #     ibterm(f"dt 2,1,{rate}")
+    #     # await obj.readback.write(value)
+    #
+    # @delay_time.readback.getter
+    # async def delay_time(obj, instance):
+    #     return ibterm(f"dt 2", float)
+    #
+    # @shutter_time.setpoint.putter
+    # async def shutter_time(obj, instance, rate):
+    #     ibterm(f"dt 3,2,{rate}")
+    #     # await obj.readback.write(value)
+    #
+    # @shutter_time.readback.getter
+    # async def shutter_time(obj, instance):
+    #     return ibterm(f"dt 3", float)
 
 
     #additional PVs only used for setup
