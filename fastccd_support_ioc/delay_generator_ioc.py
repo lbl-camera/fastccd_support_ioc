@@ -22,18 +22,46 @@ class DelayGenerator(PVGroup):
     """
 
     trigger_rate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
+    trigger_mode = pvproperty_with_rbv(dtype=int, doc="TriggerMode")
+    delay_time = pvproperty_with_rbv(type=float, doc="DelayTime")
+    shutter_time =  pvproperty_with_rbv(type=float, doc="ShutterTime")
 
     # trigger_mode = pvproperty_with_rbv("TriggerMode")
     # trigger_enabled = pvproperty_with_rbv("TriggerEnabled")
 
     @trigger_rate.setpoint.putter
-    async def trigger_rate(obj, instance, value):
-        ibterm(f"tr 0,{value}")
+    async def trigger_rate(obj, instance, rate):
+        ibterm(f"tr 0,{rate}")
         # await obj.readback.write(value)
 
     @trigger_rate.readback.getter
     async def trigger_rate(obj, instance):
         return ibterm(f"tr 0", float)
+
+    @trigger_mode.setpoint.putter
+    async def trigger_mode(obj, instance, mode):
+        "TriggerMode = 0 is int, TriggerMode 2 is SS = Single-Shot trigger"
+        ibterm(f"tm ,{mode}")
+
+    @trigger_mode.setpoint.getter
+    async def trigger_mode(obj, instance):
+        ibterm(f"tm")
+
+    @delay_time.setpoint.putter
+    async def delay_time(obj, instance, sec ):
+        ibterm(f"dt 2,1,{sec}")
+
+    @delay_time.setpoint.getter
+    async def delay_time(obj, instance):
+        ibterm(f"dt 2")
+
+    @shutter_time.setpoint.putter
+    async def shutter_time(obj, instance, sec ):
+        ibterm(f"dt 3,2,{sec}")
+
+    @shutter_time.setpoint.getter
+    async def shutter_time(obj, instance):
+        ibterm(f"dt 2")
 
 
 def main():
