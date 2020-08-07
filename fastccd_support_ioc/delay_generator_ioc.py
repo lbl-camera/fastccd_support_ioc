@@ -48,7 +48,7 @@ class DelayGenerator(PVGroup):
     @trigger_on_off.setpoint.putter
     async def trigger_on_off(obj, instance, on):
         logger.debug('setting triggering:', on)
-        if on:
+        if on == 1:
             ibterm(f"tm 0")
         else:
             ibterm(f"tm 2")
@@ -73,13 +73,13 @@ class DelayGenerator(PVGroup):
     async def shutter_time(obj, instance):
         return ibterm(f"dt 3", float)
 
-    state = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "off", ])
+    state = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "uninitialized", ])
 
     async def _initialize(self, instance, value):
         # clear and setup various parameters
         ibterm(f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,3.3; OO 1,0; TR 0,5")
 
-    async def _shutdown(self, instance, value):
+    async def _reset(self, instance, value):
         # only clear device
         ibterm(f"CL")
 
@@ -93,15 +93,15 @@ class DelayGenerator(PVGroup):
             logger.debug("setting state:", value)
 
             if value == "initialized":
-                await self.initialize(None, None)
+                await self._initialize(None, None)
 
-            elif value == "off":
-                await self.shutdown(None, None)
+            elif value == "uninitialized":
+                await self._reset(None, None)
 
         return value
 
     initialize = pvproperty(value=0, dtype=int, put=_initialize)
-    shutdown = pvproperty(value=0, dtype=int, put=_shutdown)
+    reset = pvproperty(value=0, dtype=int, put=_reset)
 
     @state.startup
     async def state(self, instance, async_lib):
@@ -109,7 +109,7 @@ class DelayGenerator(PVGroup):
 
     @state.shutdown
     async def state(self, instance, async_lib):
-        await self._shutdown(None, None)
+        await self._reset(None, None)
 
 
 def main():
