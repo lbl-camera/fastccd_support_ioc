@@ -8,16 +8,14 @@ import logging
 
 logger = logging.getLogger('caproto')
 
-
 # TODO: rename PVs to compliant convention
 # TODO: decide on PV naming convention
 # TODO: add docs to PVs
-# TODO: Should ibterm only ever return one value, or would we ever want multiple values back from a command?
 
 
 def ibterm(command, caster=None):
     command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
-    logger.debug('exec:', command)
+    logger.debug(f'exec: {command}')
     stdout = subprocess.check_output(command, shell=True)
     if caster:
         return caster(stdout.decode().split("\n")[2].strip("ibterm>").split(",")[-1])
@@ -47,8 +45,8 @@ class DelayGenerator(PVGroup):
 
     @trigger_on_off.setpoint.putter
     async def trigger_on_off(obj, instance, on):
-        logger.debug('setting triggering:', on)
-        if on == 1:
+        logger.debug(f'setting triggering: {on}')
+        if on=='On':
             ibterm(f"tm 0")
         else:
             ibterm(f"tm 2")
@@ -120,11 +118,10 @@ def main():
         desc=dedent(DelayGenerator.__doc__))
     ioc = DelayGenerator(**ioc_options)
 
-    logger.info("\nAuto-generated Ophyd device for this PVGroup",
+    logger.info('\n'.join(["\nAuto-generated Ophyd device for this PVGroup",
                 "#" * 80,
-                conversion.group_to_device(ioc),
-                "#" * 80,
-                sep='\n')
+                str(conversion.group_to_device(ioc)),
+                "#" * 80]))
 
     run(ioc.pvdb, **run_options)
 
