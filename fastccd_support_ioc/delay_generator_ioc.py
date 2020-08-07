@@ -75,11 +75,11 @@ class DelayGenerator(PVGroup):
 
     state = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "off", ])
 
-    async def initialize(self, instance, value):
+    async def _initialize(self, instance, value):
         # clear and setup various parameters
         ibterm(f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,3.3; OO 1,0; TR 0,5")
 
-    async def shutdown(self, instance, value):
+    async def _shutdown(self, instance, value):
         # only clear device
         ibterm(f"CL")
 
@@ -100,16 +100,16 @@ class DelayGenerator(PVGroup):
 
         return value
 
-    initialize = pvproperty(value=0, dtype=int, put=initialize)
-    shutdown = pvproperty(value=0, dtype=int, put=shutdown)
+    initialize = pvproperty(value=0, dtype=int, put=_initialize)
+    shutdown = pvproperty(value=0, dtype=int, put=_shutdown)
 
     @state.startup
     async def state(self, instance, async_lib):
-        await self.initialize(None, None)
+        await self._initialize(None, None)
 
     @state.shutdown
     async def state(self, instance, async_lib):
-        await self.initialize(None, None)
+        await self._shutdown(None, None)
 
 
 def main():
