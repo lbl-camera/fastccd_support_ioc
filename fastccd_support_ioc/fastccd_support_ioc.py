@@ -7,6 +7,9 @@ from caproto.server import ioc_arg_parser, run
 
 
 class FCCDSupport(PVGroup):
+    """
+    A support IOC to initialize, shutdown, and configure the ALS FastCCD; complements ADFastCCD
+    """
 
     async def fccd_shutdown(self, instance, value):
         # Note: all the fccd scripts are injected into the utils module; you can call them like so:
