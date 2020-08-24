@@ -1,10 +1,13 @@
-from caproto.server import PVGroup, pvproperty
+from caproto.server import PVGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 from . import utils
 from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
 from caproto.sync.client import write, read
+
+pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
+                                          readback_suffix='_RBV')
 
 
 class FCCDSupport(PVGroup):
@@ -49,28 +52,30 @@ class FCCDSupport(PVGroup):
     Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
-    AcquireTime = pvproperty(value=0, dtype=int)
-    AcquirePeriod = pvproperty(value=0, dtype=int)
+    AdjustedAcquireTime = pvproperty_with_rbv(value=0, dtype=float)
+    AdjustedAcquirePeriod = pvproperty_with_rbv(value=0, dtype=float)
 
-    @AcquireTime.putter
-    async def AcquireTime(self, instance, value):
-        open_delay = read(self.shutter_prefix + 'ShutterOpenDelay_RBV').data
-        close_delay = read(self.shutter_prefix + 'ShutterCloseDelay_RBV').data
+    @AdjustedAcquireTime.setpoint.putter
+    async def AdjustedAcquireTime(self, instance, value):
+        open_delay = read(self.parent.shutter_prefix + 'ShutterOpenDelay_RBV').data
+        close_delay = read(self.parent.shutter_prefix + 'ShutterCloseDelay_RBV').data
 
-        assert open_delay + value + close_delay <= self.AcquirePeriod.value
+        if not open_delay + value + close_delay <= self.parent.AdjustedAcquirePeriod.readback.value:
+            await self.parent.AdjustedAcquirePeriod.setpoint.write(open_delay + value + close_delay)
 
-        write(self.camera_prefix + 'cam1:AcquireTime', value + open_delay + close_delay)
-        write(self.shutter_prefix + 'ShutterTime', value + open_delay)
+        write(self.parent.camera_prefix + 'AcquireTime', value + open_delay + close_delay)
+        write(self.parent.shutter_prefix + 'ShutterTime', value + open_delay)
         return value
 
-    @AcquirePeriod.putter
-    async def AcquirePeriod(self, instance, value):
-        readout_time = self.readout_time.value
+    @AdjustedAcquirePeriod.setpoint.putter
+    async def AdjustedAcquirePeriod(self, instance, value):
+        readout_time = self.parent.ReadoutTime.value
 
-        assert value + readout_time >= self.AcquireTime.value
+        if not value + readout_time >= self.parent.AdjustedAcquireTime.readback.value:
+            await self.parent.AdjustedAcquireTime.setpoint.write(value + readout_time)
 
-        write(self.camera_prefix + 'cam1:AcquirePeriod', value)
-        write(self.shutter_prefix + 'TriggerRate', value)
+        write(self.parent.camera_prefix + 'AcquirePeriod', value)
+        write(self.parent.shutter_prefix + 'TriggerRate', value)
         return value
 
     ReadoutTime = pvproperty(dtype=float, value=.080)
@@ -80,9 +85,10 @@ def main():
     """Console script for fastccd_support_ioc."""
 
     ioc_options, run_options = ioc_arg_parser(
-        default_prefix='ES7011:FastCCD',
+        default_prefix='ES7011:FastCCD:cam1:',
         desc=dedent(FCCDSupport.__doc__))
-    ioc = FCCDSupport(camera_prefix='ES7011:FastCCD', shutter_prefix='ES7011:ShutterDelayGenerator:', **ioc_options)
+    ioc = FCCDSupport(camera_prefix='ES7011:FastCCD:cam1:', shutter_prefix='ES7011:ShutterDelayGenerator:',
+                      **ioc_options)
     run(ioc.pvdb, **run_options)
 
     return 0
