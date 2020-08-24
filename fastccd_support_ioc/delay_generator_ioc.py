@@ -101,8 +101,8 @@ class DelayGenerator(PVGroup):
 
         return value
 
-    initialize = pvproperty(value=0, dtype=int, put=_initialize)
-    reset = pvproperty(value=0, dtype=int, put=_reset)
+    Initialize = pvproperty(value=0, dtype=int, put=_initialize)
+    Reset = pvproperty(value=0, dtype=int, put=_reset)
 
     @State.startup
     async def State(self, instance, async_lib):
