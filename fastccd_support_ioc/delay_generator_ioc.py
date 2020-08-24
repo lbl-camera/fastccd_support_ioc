@@ -109,6 +109,9 @@ class DelayGenerator(PVGroup):
     async def state(self, instance, async_lib):
         await self._reset(None, None)
 
+    shutter_open_delay = pvproperty_with_rbv(dtype=float, doc="Shutter Open Delay", value=0.0035)
+    shutter_close_delay = pvproperty_with_rbv(dtype=float, doc="Shutter Close Delay", value=0.004)
+
 
 def main():
     """Console script for fastccd_support_ioc."""

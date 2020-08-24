@@ -4,9 +4,18 @@ from . import utils
 from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
+from caproto.sync.client import write, read
 
 
 class FCCDSupport(PVGroup):
+    """
+    Support IOC for LBL FastCCD
+    """
+
+    def __init__(self, *args, camera_prefix, shutter_prefix, **kwargs):
+        self.camera_prefix = camera_prefix
+        self.shutter_prefix = shutter_prefix
+        super(FCCDSupport, self).__init__(*args, **kwargs)
 
     async def fccd_shutdown(self, instance, value):
         # Note: all the fccd scripts are injected into the utils module; you can call them like so:
@@ -40,6 +49,29 @@ class FCCDSupport(PVGroup):
     initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
+    acquire_time = pvproperty(value=0, dtype=int)
+    acquire_period = pvproperty(value=0, dtype=int)
+
+    @acquire_time.putter
+    async def acquire_time(self, instance, value):
+        open_delay = read(self.shutter_prefix + 'shutter_open_delay_RBV')
+        close_delay = read(self.shutter_prefix + 'shutter_close_delay_RBV')
+        write(self.camera_prefix + 'cam1:AcquireTime', value + open_delay + close_delay)
+        write(self.shutter_prefix + 'shutter_time', value + open_delay)
+        return value
+
+    @acquire_period.putter
+    async def acquire_period(self, instance, value):
+        readout_time = self.readout_time.value
+
+        assert value + readout_time >= self.acquire_time.value
+
+        write(self.camera_prefix + 'cam1:AcquirePeriod', value)
+        write(self.shutter_prefix + 'trigger_rate', value)
+        return value
+
+    readout_time = pvproperty(dtype=float, value=.080)
+
 
 def main():
     """Console script for fastccd_support_ioc."""
@@ -47,7 +79,7 @@ def main():
     ioc_options, run_options = ioc_arg_parser(
         default_prefix='XF:7011:',
         desc=dedent(FCCDSupport.__doc__))
-    ioc = FCCDSupport(**ioc_options)
+    ioc = FCCDSupport(camera_prefix='ALS:701:', shutter_prefix='XF:7011:ShutterDelayGenerator:', **ioc_options)
     run(ioc.pvdb, **run_options)
 
     return 0
