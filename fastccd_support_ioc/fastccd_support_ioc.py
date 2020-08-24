@@ -9,7 +9,7 @@ from caproto.sync.client import write, read
 
 class FCCDSupport(PVGroup):
     """
-    Support IOC for LBL FastCCD
+    A support IOC to initialize, shutdown, and configure the ALS FastCCD; complements ADFastCCD
     """
 
     def __init__(self, *args, camera_prefix, shutter_prefix, **kwargs):
