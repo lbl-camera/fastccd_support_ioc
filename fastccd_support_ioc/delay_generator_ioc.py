@@ -16,9 +16,12 @@ logger = logging.getLogger('caproto')
 def ibterm(command, caster=None):
     command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
     logger.debug(f'exec: {command}')
+    print(f'exec: {command}')
     stdout = subprocess.check_output(command, shell=True)
     if caster:
-        return caster(stdout.decode().split("\n")[2].strip("ibterm>").split(",")[-1])
+        value_string = stdout.decode().split("\n")[2].strip("ibterm>").split(",")[-1]
+        print('casting value:', value_string)
+        return caster(value_string)
 
 
 pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
@@ -32,7 +35,7 @@ class DelayGenerator(PVGroup):
 
     trigger_rate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
     trigger_on_off = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF")
-    delay_time = pvproperty_with_rbv(dtype=float, doc="DelayTime")
+    shutter_open_delay = pvproperty_with_rbv(dtype=float, doc="DelayTime")
     shutter_time = pvproperty_with_rbv(dtype=float, doc="ShutterTime")
 
     @trigger_rate.setpoint.putter
@@ -55,12 +58,12 @@ class DelayGenerator(PVGroup):
     async def trigger_on_off(obj, instance):
         return ibterm(f"tm", bool)
 
-    @delay_time.setpoint.putter
-    async def delay_time(obj, instance, delay):
+    @shutter_open_delay.setpoint.putter
+    async def shutter_open_delay(obj, instance, delay):
         ibterm(f"dt 2,1,{delay}")
 
-    @delay_time.readback.getter
-    async def delay_time(obj, instance):
+    @shutter_open_delay.readback.getter
+    async def shutter_open_delay(obj, instance):
         return ibterm(f"dt 2", float)
 
     @shutter_time.setpoint.putter
