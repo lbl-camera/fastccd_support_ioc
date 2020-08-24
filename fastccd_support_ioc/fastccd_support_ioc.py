@@ -27,14 +27,14 @@ class FCCDSupport(PVGroup):
         print("initializing")
         utils.scripts.fccd_auto_start()
 
-    state = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "off", ])
+    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "off", ])
 
-    @state.getter
-    async def state(self, instance):
+    @State.getter
+    async def State(self, instance):
         return instance.value
 
-    @state.putter
-    async def state(self, instance, value):
+    @State.putter
+    async def State(self, instance, value):
         if value != instance.value:
             print("setting state:", value)
 
@@ -46,40 +46,43 @@ class FCCDSupport(PVGroup):
 
         return value
 
-    initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
-    shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
+    Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
+    Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
-    acquire_time = pvproperty(value=0, dtype=int)
-    acquire_period = pvproperty(value=0, dtype=int)
+    AcquireTime = pvproperty(value=0, dtype=int)
+    AcquirePeriod = pvproperty(value=0, dtype=int)
 
-    @acquire_time.putter
-    async def acquire_time(self, instance, value):
-        open_delay = read(self.shutter_prefix + 'shutter_open_delay_RBV')
-        close_delay = read(self.shutter_prefix + 'shutter_close_delay_RBV')
+    @AcquireTime.putter
+    async def AcquireTime(self, instance, value):
+        open_delay = read(self.shutter_prefix + 'ShutterOpenDelay_RBV').data
+        close_delay = read(self.shutter_prefix + 'ShutterCloseDelay_RBV').data
+
+        assert open_delay + value + close_delay <= self.AcquirePeriod.value
+
         write(self.camera_prefix + 'cam1:AcquireTime', value + open_delay + close_delay)
-        write(self.shutter_prefix + 'shutter_time', value + open_delay)
+        write(self.shutter_prefix + 'ShutterTime', value + open_delay)
         return value
 
-    @acquire_period.putter
-    async def acquire_period(self, instance, value):
+    @AcquirePeriod.putter
+    async def AcquirePeriod(self, instance, value):
         readout_time = self.readout_time.value
 
-        assert value + readout_time >= self.acquire_time.value
+        assert value + readout_time >= self.AcquireTime.value
 
         write(self.camera_prefix + 'cam1:AcquirePeriod', value)
-        write(self.shutter_prefix + 'trigger_rate', value)
+        write(self.shutter_prefix + 'TriggerRate', value)
         return value
 
-    readout_time = pvproperty(dtype=float, value=.080)
+    ReadoutTime = pvproperty(dtype=float, value=.080)
 
 
 def main():
     """Console script for fastccd_support_ioc."""
 
     ioc_options, run_options = ioc_arg_parser(
-        default_prefix='XF:7011:',
+        default_prefix='ES7011:FastCCD',
         desc=dedent(FCCDSupport.__doc__))
-    ioc = FCCDSupport(camera_prefix='ALS:701:', shutter_prefix='XF:7011:ShutterDelayGenerator:', **ioc_options)
+    ioc = FCCDSupport(camera_prefix='ES7011:FastCCD', shutter_prefix='ES7011:ShutterDelayGenerator:', **ioc_options)
     run(ioc.pvdb, **run_options)
 
     return 0

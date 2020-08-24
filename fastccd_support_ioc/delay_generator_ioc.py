@@ -33,48 +33,48 @@ class DelayGenerator(PVGroup):
     An IOC for the [something something] delay generator.
     """
 
-    trigger_rate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
-    trigger_on_off = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF")
-    shutter_open_delay = pvproperty_with_rbv(dtype=float, doc="DelayTime")
-    shutter_time = pvproperty_with_rbv(dtype=float, doc="ShutterTime")
+    TriggerRate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
+    TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF")
+    ShutterOpenDelay = pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035)
+    ShutterTime = pvproperty_with_rbv(dtype=float, doc="ShutterTime")
 
-    @trigger_rate.setpoint.putter
-    async def trigger_rate(obj, instance, value):
+    @TriggerRate.setpoint.putter
+    async def TriggerRate(obj, instance, value):
         ibterm(f"tr 0,{value}")
 
-    @trigger_rate.readback.getter
-    async def trigger_rate(obj, instance):
+    @TriggerRate.readback.getter
+    async def TriggerRate(obj, instance):
         return ibterm(f"tr 0", float)
 
-    @trigger_on_off.setpoint.putter
-    async def trigger_on_off(obj, instance, on):
+    @TriggerEnabled.setpoint.putter
+    async def TriggerEnabled(obj, instance, on):
         logger.debug(f'setting triggering: {on}')
         if on=='On':
             ibterm(f"tm 0")
         else:
             ibterm(f"tm 2")
 
-    @trigger_on_off.readback.getter
-    async def trigger_on_off(obj, instance):
+    @TriggerEnabled.readback.getter
+    async def TriggerEnabled(obj, instance):
         return ibterm(f"tm", bool)
 
-    @shutter_open_delay.setpoint.putter
-    async def shutter_open_delay(obj, instance, delay):
+    @ShutterOpenDelay.setpoint.putter
+    async def ShutterOpenDelay(obj, instance, delay):
         ibterm(f"dt 2,1,{delay}")
 
-    @shutter_open_delay.readback.getter
-    async def shutter_open_delay(obj, instance):
+    @ShutterOpenDelay.readback.getter
+    async def ShutterOpenDelay(obj, instance):
         return ibterm(f"dt 2", float)
 
-    @shutter_time.setpoint.putter
-    async def shutter_time(obj, instance, shutter_time):
+    @ShutterTime.setpoint.putter
+    async def ShutterTime(obj, instance, shutter_time):
         ibterm(f"dt 3,2,{shutter_time}")
 
-    @shutter_time.readback.getter
-    async def shutter_time(obj, instance):
+    @ShutterTime.readback.getter
+    async def ShutterTime(obj, instance):
         return ibterm(f"dt 3", float)
 
-    state = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "uninitialized", ])
+    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "uninitialized", ])
 
     async def _initialize(self, instance, value):
         # clear and setup various parameters
@@ -84,12 +84,12 @@ class DelayGenerator(PVGroup):
         # only clear device
         ibterm(f"CL")
 
-    @state.getter
-    async def state(self, instance):
+    @State.getter
+    async def State(self, instance):
         return instance.value
 
-    @state.putter
-    async def state(self, instance, value):
+    @State.putter
+    async def State(self, instance, value):
         if value != instance.value:
             logger.debug("setting state:", value)
 
@@ -104,16 +104,15 @@ class DelayGenerator(PVGroup):
     initialize = pvproperty(value=0, dtype=int, put=_initialize)
     reset = pvproperty(value=0, dtype=int, put=_reset)
 
-    @state.startup
-    async def state(self, instance, async_lib):
+    @State.startup
+    async def State(self, instance, async_lib):
         await self._initialize(None, None)
 
-    @state.shutdown
-    async def state(self, instance, async_lib):
+    @State.shutdown
+    async def State(self, instance, async_lib):
         await self._reset(None, None)
 
-    shutter_open_delay = pvproperty_with_rbv(dtype=float, doc="Shutter Open Delay", value=0.0035)
-    shutter_close_delay = pvproperty_with_rbv(dtype=float, doc="Shutter Close Delay", value=0.004)
+    ShutterCloseDelay = pvproperty_with_rbv(dtype=float, doc="Shutter Close Delay", value=0.004)
 
 
 def main():
