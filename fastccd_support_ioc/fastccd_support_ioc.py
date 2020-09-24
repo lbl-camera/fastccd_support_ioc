@@ -5,9 +5,14 @@ from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
 from caproto.sync.client import write, read
+from caproto.asyncio.client import Context
+from caproto._utils import CaprotoTimeoutError
 
 pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
                                           readback_suffix='_RBV')
+
+DEFAULT_ACQUIRETIME = 1
+DEFAULT_ACQUIREPERIOD = 1.1
 
 
 class FCCDSupport(PVGroup):
@@ -15,9 +20,12 @@ class FCCDSupport(PVGroup):
     A support IOC to initialize, shutdown, and configure the ALS FastCCD; complements ADFastCCD
     """
 
-    def __init__(self, *args, camera_prefix, shutter_prefix, **kwargs):
+    # ACQUIRE_POLL_PERIOD = 0.1
+
+    def __init__(self, *args, camera_prefix, shutter_prefix, hdf5_prefix, **kwargs):
         self.camera_prefix = camera_prefix
         self.shutter_prefix = shutter_prefix
+        self.hdf5_prefix = hdf5_prefix
         super(FCCDSupport, self).__init__(*args, **kwargs)
 
     async def fccd_shutdown(self, instance, value):
@@ -30,7 +38,47 @@ class FCCDSupport(PVGroup):
         print("initializing")
         utils.scripts.fccd_auto_start()
 
-    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "off", ])
+    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "off", ], value="unknown")
+
+    @State.startup
+    async def State(self, instance, async_lib):
+
+        self._context = Context()
+
+        self.pv, = await self._context.get_pvs(self.hdf5_prefix + 'Capture_RBV')
+
+        self.sub = self.pv.subscribe(data_type=ChannelType.INT)
+
+        self.sub.add_callback(self.check_finished)
+
+        # FINISHED = b'Done'
+        # acquire_state = FINISHED
+        #
+        # while True:
+        #     await async_lib.library.sleep(self.ACQUIRE_POLL_PERIOD)
+        #
+        #     try:
+        #         # get new value from camera
+        #         new_state = read(self.hdf5_prefix + 'Capture_RBV').data[0]
+        #     except CaprotoTimeoutError:
+        #         print("WARNING! Could not communicate with ca")
+        #         continue
+        #
+        #     if acquire_state!=new_state:
+        #         print('data:', acquire_state, '->', new_state)
+        #
+        #     # if on a falling edge
+        #     if acquire_state != FINISHED and new_state == FINISHED:
+        #         # propagate that change to our own Acquire
+        #         await self.AdjustedAcquire.write(0)
+        #
+        #     acquire_state = new_state
+
+    async def check_finished(self, pv, response):
+        # todo: make sure this is a falling edge
+        print('data:', response.data[0])
+        if response.data[0] == 0:
+            await self.AdjustedAcquire.write(0)
 
     @State.getter
     async def State(self, instance):
@@ -52,8 +100,18 @@ class FCCDSupport(PVGroup):
     Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
-    AdjustedAcquireTime = pvproperty_with_rbv(value=0, dtype=float)
-    AdjustedAcquirePeriod = pvproperty_with_rbv(value=0, dtype=float)
+    AdjustedAcquireTime = pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
+                                              cls_kwargs={'precision': 3, 'units': 's'})
+    AdjustedAcquirePeriod = pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
+                                                cls_kwargs={'precision': 3, 'units': 's'})
+    AdjustedAcquire = pvproperty(value=0, dtype=int)
+
+    @AdjustedAcquire.putter
+    async def AdjustedAcquire(self, instance, value):
+        write(self.shutter_prefix + 'TriggerEnabled', [int(value)])
+        write(self.camera_prefix + 'Acquire', [value])
+        write(self.hdf5_prefix + 'Capture', [value])
+        return value
 
     @AdjustedAcquireTime.setpoint.putter
     async def AdjustedAcquireTime(self, instance, value):
@@ -64,7 +122,9 @@ class FCCDSupport(PVGroup):
             await self.parent.AdjustedAcquirePeriod.setpoint.write(open_delay + value + close_delay)
 
         write(self.parent.camera_prefix + 'AcquireTime', value + open_delay + close_delay)
-        write(self.parent.shutter_prefix + 'ShutterTime', value + open_delay)
+        write(self.parent.shutter_prefix + 'ShutterTime', value)
+
+        await self.readback.write(value)
         return value
 
     @AdjustedAcquirePeriod.setpoint.putter
@@ -75,7 +135,9 @@ class FCCDSupport(PVGroup):
             await self.parent.AdjustedAcquireTime.setpoint.write(value + readout_time)
 
         write(self.parent.camera_prefix + 'AcquirePeriod', value)
-        write(self.parent.shutter_prefix + 'TriggerRate', value)
+        write(self.parent.shutter_prefix + 'TriggerRate', 1. / value)
+
+        await self.readback.write(value)
         return value
 
     ReadoutTime = pvproperty(dtype=float, value=.080)
@@ -87,7 +149,9 @@ def main():
     ioc_options, run_options = ioc_arg_parser(
         default_prefix='ES7011:FastCCD:cam1:',
         desc=dedent(FCCDSupport.__doc__))
-    ioc = FCCDSupport(camera_prefix='ES7011:FastCCD:cam1:', shutter_prefix='ES7011:ShutterDelayGenerator:',
+    ioc = FCCDSupport(camera_prefix='ES7011:FastCCD:cam1:',
+                      shutter_prefix='ES7011:ShutterDelayGenerator:',
+                      hdf5_prefix='ES7011:FastCCD:HDF1:',
                       **ioc_options)
     run(ioc.pvdb, **run_options)
 
