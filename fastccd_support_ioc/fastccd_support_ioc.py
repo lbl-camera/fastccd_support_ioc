@@ -26,6 +26,7 @@ class FCCDSupport(PVGroup):
         self.camera_prefix = camera_prefix
         self.shutter_prefix = shutter_prefix
         self.hdf5_prefix = hdf5_prefix
+        self._capture_goal = 0
         super(FCCDSupport, self).__init__(*args, **kwargs)
 
     async def fccd_shutdown(self, instance, value):
@@ -45,39 +46,18 @@ class FCCDSupport(PVGroup):
 
         self._context = Context()
 
-        self.pv, = await self._context.get_pvs(self.hdf5_prefix + 'Capture_RBV')
+        self.pv, = await self._context.get_pvs(self.hdf5_prefix + 'NumCaptured_RBV')
 
         self.sub = self.pv.subscribe(data_type=ChannelType.INT)
 
         self.sub.add_callback(self.check_finished)
 
-        # FINISHED = b'Done'
-        # acquire_state = FINISHED
-        #
-        # while True:
-        #     await async_lib.library.sleep(self.ACQUIRE_POLL_PERIOD)
-        #
-        #     try:
-        #         # get new value from camera
-        #         new_state = read(self.hdf5_prefix + 'Capture_RBV').data[0]
-        #     except CaprotoTimeoutError:
-        #         print("WARNING! Could not communicate with ca")
-        #         continue
-        #
-        #     if acquire_state!=new_state:
-        #         print('data:', acquire_state, '->', new_state)
-        #
-        #     # if on a falling edge
-        #     if acquire_state != FINISHED and new_state == FINISHED:
-        #         # propagate that change to our own Acquire
-        #         await self.AdjustedAcquire.write(0)
-        #
-        #     acquire_state = new_state
-
     async def check_finished(self, pv, response):
         # todo: make sure this is a falling edge
         print('data:', response.data[0])
-        if response.data[0] == 0:
+
+        if response.data[0] == self._capture_goal:
+            print('finished!')
             await self.AdjustedAcquire.write(0)
 
     @State.getter
@@ -108,9 +88,10 @@ class FCCDSupport(PVGroup):
 
     @AdjustedAcquire.putter
     async def AdjustedAcquire(self, instance, value):
+        self._capture_goal = read(self.hdf5_prefix + 'NumCapture').data
         write(self.shutter_prefix + 'TriggerEnabled', [int(value)])
+        # write(self.hdf5_prefix + 'Capture', [value])
         write(self.camera_prefix + 'Acquire', [value])
-        write(self.hdf5_prefix + 'Capture', [value])
         return value
 
     @AdjustedAcquireTime.setpoint.putter
@@ -131,8 +112,8 @@ class FCCDSupport(PVGroup):
     async def AdjustedAcquirePeriod(self, instance, value):
         readout_time = self.parent.ReadoutTime.value
 
-        if not value + readout_time >= self.parent.AdjustedAcquireTime.readback.value:
-            await self.parent.AdjustedAcquireTime.setpoint.write(value + readout_time)
+        if not value - readout_time >= self.parent.AdjustedAcquireTime.readback.value:
+            await self.parent.AdjustedAcquireTime.setpoint.write(value - readout_time)
 
         write(self.parent.camera_prefix + 'AcquirePeriod', value)
         write(self.parent.shutter_prefix + 'TriggerRate', 1. / value)
