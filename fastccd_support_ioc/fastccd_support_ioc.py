@@ -33,13 +33,19 @@ class FCCDSupport(PVGroup):
         # Note: all the fccd scripts are injected into the utils module; you can call them like so:
 
         print("shutting down")
-        utils.scripts.auto_power_down_script()
+        await self.State.write("Off")
 
     async def fccd_initialize(self, instance, value):
         print("initializing")
+        await self.State.write("Initialized")
+
+    async def _fccd_initialize(self, instance, value):
         utils.scripts.fccd_auto_start()
 
-    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "off", ], value="unknown")
+    async def _fccd_shutdown(self, instance, value):
+        utils.scripts.auto_power_down_script()
+
+    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["Unknown", "Initialized", "Off", ], value="Unknown")
 
     @State.startup
     async def State(self, instance, async_lib):
@@ -69,11 +75,11 @@ class FCCDSupport(PVGroup):
         if value != instance.value:
             print("setting state:", value)
 
-            if value == "initialized":
-                await self.fccd_initialize(None, None)
+            if value == "Initialized":
+                await self._fccd_initialize(None, None)
 
-            elif value == "off":
-                await self.fccd_shutdown(None, None)
+            elif value == "Off":
+                await self._fccd_shutdown(None, None)
 
         return value
 

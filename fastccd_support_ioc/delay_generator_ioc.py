@@ -74,7 +74,13 @@ class DelayGenerator(PVGroup):
     async def ShutterTime(obj, instance):
         return ibterm(f"dt 3", float)
 
-    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "initialized", "uninitialized", ])
+    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "Initialized", "Uninitialized", ])
+
+    async def initialize(self, instance, value):
+        await self.State.write('Initialized')
+
+    async def reset(self, instance, value):
+        await self.State.write('Unitialized')
 
     async def _initialize(self, instance, value):
         # clear and setup various parameters
@@ -93,24 +99,24 @@ class DelayGenerator(PVGroup):
         if value != instance.value:
             logger.debug("setting state:", value)
 
-            if value == "initialized":
+            if value == "Initialized":
                 await self._initialize(None, None)
 
-            elif value == "uninitialized":
+            elif value == "Uninitialized":
                 await self._reset(None, None)
 
         return value
 
-    Initialize = pvproperty(value=0, dtype=int, put=_initialize)
-    Reset = pvproperty(value=0, dtype=int, put=_reset)
+    Initialize = pvproperty(value=0, dtype=int, put=initialize)
+    Reset = pvproperty(value=0, dtype=int, put=reset)
 
     @State.startup
     async def State(self, instance, async_lib):
-        await self._initialize(None, None)
+        await self.State.write('Initialized')
 
     @State.shutdown
     async def State(self, instance, async_lib):
-        await self._reset(None, None)
+        await self.State.write('Uninitialized')
 
     ShutterCloseDelay = pvproperty_with_rbv(dtype=float, doc="Shutter Close Delay", value=0.004)
 
