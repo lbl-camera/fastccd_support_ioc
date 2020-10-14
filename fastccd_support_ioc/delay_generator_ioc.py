@@ -119,7 +119,7 @@ def main():
     """Console script for fastccd_support_ioc."""
 
     ioc_options, run_options = ioc_arg_parser(
-        default_prefix='XF:7011:ShutterDelayGenerator:',
+        default_prefix='ES7011:ShutterDelayGenerator:',
         desc=dedent(DelayGenerator.__doc__))
     ioc = DelayGenerator(**ioc_options)
 
