@@ -27,14 +27,18 @@ def ibterm(command, caster=None):
 pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
                                           readback_suffix='_RBV')
 
+INITIAL_TRIGGER_RATE = 5
+SHUTTER_OUTPUT_AMPLITUDE = 3.3
+
 
 class DelayGenerator(PVGroup):
     """
     An IOC for the [something something] delay generator.
     """
 
-    TriggerRate = pvproperty_with_rbv(dtype=float, doc="TriggerRate")
-    TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF")
+    TriggerRate = pvproperty_with_rbv(dtype=float, doc="TriggerRate", value=INITIAL_TRIGGER_RATE)
+    TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF", value=False)
+    ShutterEnabled = pvproperty_with_rbv(dtype=bool, doc="ShutterOnOFF", value=False)
     ShutterOpenDelay = pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035)
     ShutterTime = pvproperty_with_rbv(dtype=float, doc="ShutterTime")
 
@@ -58,6 +62,18 @@ class DelayGenerator(PVGroup):
     async def TriggerEnabled(obj, instance):
         return ibterm(f"tm", bool)
 
+    @ShutterEnabled.setpoint.putter
+    async def ShutterEnabled(obj, instance, on):
+        logger.debug(f'setting triggering: {on}')
+        if on == 'On':
+            ibterm(f"OA 1,{SHUTTER_OUTPUT_AMPLITUDE}")
+        else:
+            ibterm(f"OA 1,0")
+
+    @ShutterEnabled.readback.getter
+    async def ShutterEnabled(obj, instance):
+        return ibterm(f"OA 1", float) == SHUTTER_OUTPUT_AMPLITUDE
+
     @ShutterOpenDelay.setpoint.putter
     async def ShutterOpenDelay(obj, instance, delay):
         ibterm(f"dt 2,1,{delay}")
@@ -74,7 +90,7 @@ class DelayGenerator(PVGroup):
     async def ShutterTime(obj, instance):
         return ibterm(f"dt 3", float)
 
-    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["unknown", "Initialized", "Uninitialized", ])
+    State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["Unknown", "Initialized", "Uninitialized", ])
 
     async def initialize(self, instance, value):
         await self.State.write('Initialized')
@@ -84,7 +100,8 @@ class DelayGenerator(PVGroup):
 
     async def _initialize(self, instance, value):
         # clear and setup various parameters
-        ibterm(f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,3.3; OO 1,0; TR 0,5")
+        ibterm(
+            f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}")
 
     async def _reset(self, instance, value):
         # only clear device
