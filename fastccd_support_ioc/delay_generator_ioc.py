@@ -96,7 +96,7 @@ class DelayGenerator(PVGroup):
         await self.State.write('Initialized')
 
     async def reset(self, instance, value):
-        await self.State.write('Unitialized')
+        await self.State.write('Uninitialized')
 
     async def _initialize(self, instance, value):
         # clear and setup various parameters
@@ -142,7 +142,7 @@ def main():
     """Console script for fastccd_support_ioc."""
 
     ioc_options, run_options = ioc_arg_parser(
-        default_prefix='XF:7011:ShutterDelayGenerator:',
+        default_prefix='ES7011:ShutterDelayGenerator:',
         desc=dedent(DelayGenerator.__doc__))
     ioc = DelayGenerator(**ioc_options)
 
