@@ -80,7 +80,7 @@ class DelayGenerator(PVGroup):
         await self.State.write('Initialized')
 
     async def reset(self, instance, value):
-        await self.State.write('Unitialized')
+        await self.State.write('Uninitialized')
 
     async def _initialize(self, instance, value):
         # clear and setup various parameters
