@@ -66,13 +66,13 @@ class DelayGenerator(PVGroup):
     async def ShutterEnabled(obj, instance, on):
         logger.debug(f'setting triggering: {on}')
         if on == 'On':
-            ibterm(f"OA 1,{SHUTTER_OUTPUT_AMPLITUDE}")
+            ibterm(f"OA 4,{SHUTTER_OUTPUT_AMPLITUDE}")
         else:
-            ibterm(f"OA 1,0")
+            ibterm(f"OA 4,0")
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
-        return ibterm(f"OA 1", float) == SHUTTER_OUTPUT_AMPLITUDE
+        return ibterm(f"OA 4", float) == SHUTTER_OUTPUT_AMPLITUDE
 
     @ShutterOpenDelay.setpoint.putter
     async def ShutterOpenDelay(obj, instance, delay):
