@@ -83,21 +83,23 @@ class DelayGenerator(PVGroup):
     async def ShutterEnabled(obj, instance):
         return ibterm(f"OM 4", float) == 0
 
-    @ShutterOpenDelay.setpoint.putter
-    async def ShutterOpenDelay(obj, instance, delay):
-        ibterm(f"dt 2,1,{delay}")
+    # @ShutterOpenDelay.setpoint.putter
+    # async def ShutterOpenDelay(obj, instance, delay):
+    #     ibterm(f"dt 2,1,{delay}")
 
-    @ShutterOpenDelay.readback.getter
-    async def ShutterOpenDelay(obj, instance):
-        return ibterm(f"dt 2", float)
+    # @ShutterOpenDelay.readback.getter
+    # async def ShutterOpenDelay(obj, instance):
+    #     return ibterm(f"dt 2", float)
 
     @ShutterTime.setpoint.putter
     async def ShutterTime(obj, instance, shutter_time):
-        ibterm(f"dt 3,2,{shutter_time}")
+        if shutter_time < obj.ShutterOpenDelay.readback.value + obj.ShutterCloseDelay.readback.value:
+            raise ValueError("Shutter time cannot be less than the time it takes to open AND close the shutter (less than 0 exposure time).")
+        ibterm(f"dt 3,2,{shutter_time-obj.ShutterCloseDelay.readback.value}")
 
     @ShutterTime.readback.getter
     async def ShutterTime(obj, instance):
-        return ibterm(f"dt 3", float)
+        return ibterm(f"dt 3", float) - obj.ShutterCloseDelay.readback.value
 
     State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["Unknown", "Initialized", "Uninitialized", ])
 
@@ -108,9 +110,27 @@ class DelayGenerator(PVGroup):
         await self.State.write('Uninitialized')
 
     async def _initialize(self, instance, value):
+        # Channels
+        # 1 - T0 - (DEPRECATED, now timing only) Camera Trigger
+        # 2 - A (for timing purposes)
+        # 3 - B Shutter pulse
+        # 4 - A & B - Shutter (physical connection)
+        # 5 - A | B
+        # 6 - C (?) Camera Trigger
+
         # clear and setup various parameters
         ibterm(
             f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}")
+        # Clear
+        # Set 2 to trigger 1ms off of 1
+        # Set 3 to trigger 140ms off of 2
+        # Impedance
+        # Impedance
+        # Set 4 to TTL
+        # Set 1 to Variable
+        # Voltage
+        # Offset
+        # Set trigger rate
 
     async def _reset(self, instance, value):
         # only clear device
