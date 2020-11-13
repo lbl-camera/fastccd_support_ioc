@@ -17,11 +17,20 @@ def ibterm(command, caster=None):
     command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
     logger.debug(f'exec: {command}')
     print(f'exec: {command}')
-    stdout = subprocess.check_output(command, shell=True)
-    if caster:
-        value_string = stdout.decode().split("\n")[2].strip("ibterm>").split(",")[-1]
-        print('casting value:', value_string)
-        return caster(value_string)
+    for i in range(3):
+        try:
+            stdout = subprocess.check_output(command, shell=True)
+            if caster:
+                value_string = stdout.decode().split("\n")[2].strip("ibterm>").split(",")[-1]
+                logger.debug(f'casting value: {value_string}')
+                print(f'casting value: {value_string}')
+                return caster(value_string)
+            else:
+                break
+        except ValueError:
+            print(f'Failed to cast value using {caster}, retrying: {value_string}')
+    else:
+        raise ConnectionError('Failed to cast value 3 times.')
 
 
 pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
@@ -66,13 +75,13 @@ class DelayGenerator(PVGroup):
     async def ShutterEnabled(obj, instance, on):
         logger.debug(f'setting triggering: {on}')
         if on == 'On':
-            ibterm(f"OA 4,{SHUTTER_OUTPUT_AMPLITUDE}")
+            ibterm(f"OM 4,0; OA 4,.1")
         else:
-            ibterm(f"OA 4,0")
+            ibterm(f"OM 4,3")
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
-        return ibterm(f"OA 4", float) == SHUTTER_OUTPUT_AMPLITUDE
+        return ibterm(f"OM 4", float) == 0
 
     @ShutterOpenDelay.setpoint.putter
     async def ShutterOpenDelay(obj, instance, delay):
