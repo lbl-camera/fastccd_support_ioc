@@ -34,6 +34,6 @@ s.sendall(b'SOUR:CURR 5.000 \r\n')
 s.sendall(b'OUTP 1 \r\n')
 
 time.sleep(0.2)
-from . import get_FOPS_Status
+import get_FOPS_Status
 
 s.close()

@@ -25,51 +25,51 @@ s.connect((DMM2701_IP, DMM2701_PORT))
 
 print("\nFastCCD Power Monitor")
 
-s.sendall('MEAS:VOLT? (@101)\r\n')
-v = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@101)\r\n')
+v = s.recv(1024).decode()
 tv = float(v[0] + v[1] + v[2] + v[3] + v[4] + v[5] + v[11] + v[12] + v[13] + v[14])
-s.sendall('MEAS:VOLT? (@109)\r\n')
-a = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@109)\r\n')
+a = s.recv(1024).decode()
 ta = float(a[1] + a[2] + a[3] + a[4] + a[10] + a[11] + a[12] + a[13] + a[14]) * 100
 if (tv < 0.05): tv = 0
 if (ta < 0.001): ta = 0
 print("A04V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
 
-s.sendall('MEAS:VOLT? (@103)\r\n')
-v = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@103)\r\n')
+v = s.recv(1024).decode()
 tv = float(v[0] + v[1] + v[2] + v[3] + v[4] + v[5] + v[11] + v[12] + v[13] + v[14])
-s.sendall('MEAS:VOLT? (@111)\r\n')
-a = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@111)\r\n')
+a = s.recv(1024).decode()
 ta = float(a[1] + a[2] + a[3] + a[4] + a[10] + a[11] + a[12] + a[13] + a[14]) * 100
 if (tv < 0.05): tv = 0
 if (ta < 0.001): ta = 0
 print("A15V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
 
-s.sendall('MEAS:VOLT? (@104)\r\n')
-v = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@104)\r\n')
+v = s.recv(1024).decode()
 tv = float(v[0] + v[1] + v[2] + v[3] + v[4] + v[5] + v[11] + v[12] + v[13] + v[14])
-s.sendall('MEAS:VOLT? (@112)\r\n')
-a = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@112)\r\n')
+a = s.recv(1024).decode()
 ta = float(a[1] + a[2] + a[3] + a[4] + a[10] + a[11] + a[12] + a[13] + a[14]) * 100
 if (tv < 0.05): tv = 0
 if (ta < 0.001): ta = 0
 print("B15V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
 
-s.sendall('MEAS:VOLT? (@105)\r\n')
-v = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@105)\r\n')
+v = s.recv(1024).decode()
 tv = float(v[0] + v[1] + v[2] + v[3] + v[4] + v[5] + v[11] + v[12] + v[13] + v[14])
-s.sendall('MEAS:VOLT? (@113)\r\n')
-a = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@113)\r\n')
+a = s.recv(1024).decode()
 ta = float(a[1] + a[2] + a[3] + a[4] + a[10] + a[11] + a[12] + a[13] + a[14]) * 100
 if (tv < 0.05): tv = 0
 if (ta < 0.001): ta = 0
 print("A30V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
 
-s.sendall('MEAS:VOLT? (@106)\r\n')
-v = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@106)\r\n')
+v = s.recv(1024).decode()
 tv = float(v[0] + v[1] + v[2] + v[3] + v[4] + v[5] + v[11] + v[12] + v[13] + v[14])
-s.sendall('MEAS:VOLT? (@114)\r\n')
-a = s.recv(1024)
+s.sendall(b'MEAS:VOLT? (@114)\r\n')
+a = s.recv(1024).decode()
 ta = float(a[1] + a[2] + a[3] + a[4] + a[10] + a[11] + a[12] + a[13] + a[14]) * 100
 if (tv < 0.05): tv = 0
 if (ta < 0.001): ta = 0
@@ -78,3 +78,6 @@ print("B30V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
 print()
 
 s.close()
+
+if __name__ == '__main__':
+    pass

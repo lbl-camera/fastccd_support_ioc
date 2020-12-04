@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 import time
 import socket
-from . import cin_constants
-from . import cin_register_map
+import cin_constants
+import cin_register_map
 
 # import argparse
 
