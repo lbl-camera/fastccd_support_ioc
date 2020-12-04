@@ -41,6 +41,7 @@ class FCCDSupport(PVGroup):
 
     async def _fccd_initialize(self, instance, value):
         utils.scripts.fccd_auto_start()
+        # utils.scripts.cosmic_fccd_auto_start()
 
     async def _fccd_shutdown(self, instance, value):
         utils.scripts.auto_power_down_script()
@@ -108,8 +109,8 @@ class FCCDSupport(PVGroup):
         if not open_delay + value + close_delay <= self.parent.AdjustedAcquirePeriod.readback.value:
             await self.parent.AdjustedAcquirePeriod.setpoint.write(open_delay + value + close_delay)
 
-        write(self.parent.camera_prefix + 'AcquireTime', value + open_delay + close_delay)
-        write(self.parent.shutter_prefix + 'ShutterTime', value)
+        write(self.parent.camera_prefix + 'AcquireTime', value + close_delay + open_delay)
+        write(self.parent.shutter_prefix + 'ShutterTime', value + open_delay)
 
         await self.readback.write(value)
         return value
