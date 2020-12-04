@@ -1,8 +1,8 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-from . import cin_constants
-from . import cin_register_map
-from . import cin_functions
+import cin_constants
+import cin_register_map
+import cin_functions
 import time
 
 # `def setFPPowerOn():
