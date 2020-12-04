@@ -93,9 +93,9 @@ class DelayGenerator(PVGroup):
 
     @ShutterTime.setpoint.putter
     async def ShutterTime(obj, instance, shutter_time):
-        if shutter_time < obj.ShutterOpenDelay.readback.value + obj.ShutterCloseDelay.readback.value:
+        if shutter_time < obj.parent.ShutterOpenDelay.readback.value + obj.parent.ShutterCloseDelay.readback.value:
             raise ValueError("Shutter time cannot be less than the time it takes to open AND close the shutter (less than 0 exposure time).")
-        ibterm(f"dt 3,2,{shutter_time-obj.ShutterCloseDelay.readback.value}")
+        ibterm(f"dt 3,1,{shutter_time}")
 
     @ShutterTime.readback.getter
     async def ShutterTime(obj, instance):
@@ -120,7 +120,7 @@ class DelayGenerator(PVGroup):
 
         # clear and setup various parameters
         ibterm(
-            f"CL; DT 2,1,1E-3; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}")
+            f"CL; DT 2,1,0; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}")
         # Clear
         # Set 2 to trigger 1ms off of 1
         # Set 3 to trigger 140ms off of 2
