@@ -7,6 +7,8 @@ from fastccd_support_ioc.utils import cin_functions
 import urllib.request, urllib.error, urllib.parse
 import time
 
+# import setClocksBiasOff
+
 print("\n Shutting down CCD Bias and Clocks")
 cin_functions.setCameraOff()
 
