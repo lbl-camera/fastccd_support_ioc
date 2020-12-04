@@ -17,7 +17,7 @@ config_dir = '/home/rp/PycharmProjects/fastccd_support_ioc/fastccd_support_ioc/u
 
 # Configure Frame FPGA
 # jj-changed to lastest fw 05/02/17 In EuXFEL bin location
-cin_functions.loadFrmFirmware(cin_binary_dir + "top_frame_fpga.bit")
+cin_functions.loadFrmFirmware(cin_binary_dir + "FPGAConfig.bit")
 
 import getFrmFPGAStatus
 import setFClk125M
@@ -25,11 +25,13 @@ import setFClk125M
 import getFClkStatus
 
 # Load Camera Timing File for 125MHz System Clock
-cin_functions.loadCameraConfigFile(config_dir + "20170525_125MHz_fCCD_Timing_xper.txt")
+cin_functions.loadCameraConfigFile(config_dir + "TimingConfig.txt")
 
-# print "\nSet Trigger Mux to accept external triggers on FP Trigger Input 1 Only"
-# import setTrigger0   # Maps to Front Panel Trigger Input 1
-import setTriggerSW
+print
+"\nSet Trigger Mux to accept external triggers on FP Trigger Input 1 Only"
+import setTrigger0  # Maps to Front Panel Trigger Input 1
+
+# import setTriggerSW
 
 # Set Exposure Time to 1ms
 cin_functions.WriteReg("8206", "0000", 1)  # MS Byte
@@ -37,9 +39,11 @@ cin_functions.WriteReg("8207", "0032", 1)  # LS Byte
 # Set Int TriggerRate to 100ms
 cin_functions.WriteReg("8208", "0000", 1)  # MS Byte
 cin_functions.WriteReg("8209", "0064", 1)  # LS Byte
+
 # Set Num Exposures == 1
-# cin_functions.WriteReg("820C", "0001", 1)
-# Power up Front Panel boards
+cin_functions.WriteReg("820C", "0001", 1)
+
+# Power up Front Panel boards & FO Modules
 import setFPPowerOn
 
 time.sleep(0.2)  # Wait to allow visual check
@@ -48,9 +52,10 @@ import set_FOPS_On
 
 time.sleep(0.2)  # Wait to allow visual check
 
+## *********** DO NOT SEND PORT CONNECT ********
 #  Send UDP packet to configure Stream Port
 # print "\nConfigure CIN for Broadcast Mode Tx"
-import sendConnect
+# import sendConnect
 
 # import getPowerStatus  # Status of CIN internal power supplies
 # import getTempStatus
@@ -58,23 +63,16 @@ import sendConnect
 
 # raw_input("\n(Press Enter Key to Power Up Camera)")
 
-# import setMainPS1_On
-# time.sleep(2)  # Wait to allow visual check
-# import getCameraPower
+# Power on Camera
+import setMainPS1_On
 
-# raw_input("\n(Press Enter Key to send Bias Configuration to Camera clock board)")
+time.sleep(2)  # Wait to allow visual check
+import getCameraPower
 
-# cin_functions.loadCameraConfigFile("/home/user/CVSSandbox/QT/CINController/config/20140327_XCS_Bias_Settings.txt")
+cin_functions.loadCameraConfigFile(config_dir + "FCRICConfig.txt")
 
-# raw_input("\n(Press Enter Key to send FCRIC Configurations)")
+time.sleep(0.2)  # Wait to allow visual check
 
-# cin_functions.loadCameraConfigFile("/home/user/CVSSandbox/QT/CINController/config/2013_Nov_25-200_MHz_fCRIC_timing.txt")
+cin_functions.loadCameraConfigFile(config_dir + "BiasConfig.txt")
 
-# ./setReg.py 8212 00e0 Mask the bad signal lines FCRIC to CIN
-# cin_functions.WriteReg("8211", "E000", 1)
-# cin_functions.WriteReg("8212", "00E0", 1)
-
-# raw_input("\nfCCD Camera configured and ready to enable (Press Enter Key to Exit)")
-# raw_input("\nfCCD Camera ready (Press Enter Key to Exit)")
-
-# "/home/fastCCD/CameraControl/fccd_gui/CIN_Controller"
+# cin_functions.WriteReg("8204", "0001", 1)
