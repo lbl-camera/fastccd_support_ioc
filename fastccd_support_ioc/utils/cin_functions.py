@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 import time
 import socket
-import cin_constants
-import cin_register_map
+from fastccd_support_ioc.utils import cin_constants
+from fastccd_support_ioc.utils import cin_register_map
 
 # import argparse
 

@@ -1,5 +1,6 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
+import subprocess
 
 import cin_constants
 import cin_register_map
@@ -61,7 +62,6 @@ time.sleep(.2)
 
 if not check_FOPS():
     import auto_power_down_script
-
     raise ValueError('The FOPS values were outside acceptable range. The camera has been powered down.')
 
 ## *********** DO NOT SEND PORT CONNECT ********
@@ -73,7 +73,7 @@ if not check_FOPS():
 # import getTempStatus
 # Can put a test here to check the Sensor Temperature before power on
 
-input("\n(Press Enter Key to Power Up Camera)")
+# input("\n(Press Enter Key to Power Up Camera)")
 
 # Power on Camera
 import setMainPS1_On
@@ -82,10 +82,9 @@ time.sleep(2)  # Wait to allow visual check
 
 if not check_camera_power():
     import auto_power_down_script
-
     raise ValueError('The camera power values were outside an acceptable range. The camera has been powered down.')
 
-input("\n(Press Enter Key to Continue)")
+# input("\n(Press Enter Key to Continue)")
 
 cin_functions.loadCameraConfigFile(config_dir + "FCRICConfig.txt")
 
@@ -93,12 +92,15 @@ time.sleep(0.2)  # Wait to allow visual check
 
 from fastccd_support_ioc.utils.sendBiasConfig import sendBiasConfig
 
-sendBiasConfig(config_dir + "BiasConfig.txt")
+if not sendBiasConfig(config_dir + "BiasConfig.txt"):
+    import auto_power_down_script
 
-# import setClocksBiasOn
-# if not check_bias_clocks():
-#     import auto_power_down_script
-#     raise ValueError('The Bias/Clock values were outside an acceptable range. The camera has been powered down.')
+    raise ValueError(
+        'The camera bias/clock readback values were outside an acceptable range. The camera has been powered down.')
+
+import setClocksBiasOn
+
+print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
 
 if __name__ == "__main__":
     pass

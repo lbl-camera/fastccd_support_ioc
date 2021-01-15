@@ -20,30 +20,36 @@ def check_FOPS(VOLTAGE_MARGIN=.2) -> bool:
     E36102A_IP = "192.168.1.3"
     E36102A_PORT = 5025
 
-    # Create a socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(3)
-    s.connect((E36102A_IP, E36102A_PORT))
+    try:
 
-    # Clear Communications
-    s.sendall(b'*CLS\r\n')
-    # Wait at least 50ms before sending next command
-    time.sleep(0.1)
+        # Create a socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(3)
+        s.connect((E36102A_IP, E36102A_PORT))
 
-    # print "FastCCD FO Power Supply Monitor"
-    s.sendall(b'MEAS:VOLT?')
-    v = s.recv(16)
-    s.sendall(b'MEAS:CURR?')
-    i = s.recv(16)
-    # print v
-    voltage = float(v)
-    if (voltage < 0.01): voltage = 0.000
+        # Clear Communications
+        s.sendall(b'*CLS\r\n')
+        # Wait at least 50ms before sending next command
+        time.sleep(0.1)
 
-    # print i
-    current = float(i)
-    if (current < 0.01): current = 0.000
+        # print "FastCCD FO Power Supply Monitor"
+        s.sendall(b'MEAS:VOLT?')
+        v = s.recv(16)
+        s.sendall(b'MEAS:CURR?')
+        i = s.recv(16)
+        # print v
+        voltage = float(v)
+        if (voltage < 0.01): voltage = 0.000
 
-    if not _within_range(voltage, 4.5):
+        # print i
+        current = float(i)
+        if (current < 0.01): current = 0.000
+
+        if not _within_range(voltage, 4.5):
+            return False
+
+    except Exception as ex:
+        print(ex)
         return False
 
     return True

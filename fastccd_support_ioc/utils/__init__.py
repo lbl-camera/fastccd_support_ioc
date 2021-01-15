@@ -1,3 +1,4 @@
+import subprocess
 import sys
 import os
 import glob
@@ -14,7 +15,7 @@ def execfile(filepath, globals=None, locals=None):
     # with open(filepath, 'rb') as file:
     #     exec(compile(file.read(), filepath, 'exec'), globals, locals)
 
-    os.system("python " + filepath)
+    subprocess.Popen(["python", filepath])
 
 
 def script_path(script_name):
@@ -38,5 +39,5 @@ for path in glob.iglob(os.path.join(__path__[0], '*.py')):
     #                 None))
     setattr(scripts,
             script_name,
-            partial(os.system,
-                    "python " + path))
+            partial(subprocess.Popen,
+                    ["python", path]))

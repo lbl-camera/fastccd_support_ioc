@@ -5,4 +5,4 @@ def sendBiasConfig(path):
     print("Loading Bias Config File")
     loadBiasConfigFile.loadBiasConfigFile(path)
     loadBiasConfigFile.loadBiasConfigFile(path)
-    loadBiasConfigFile.readBiasConfigFile(path)
+    return loadBiasConfigFile.readBiasConfigFile(path)
