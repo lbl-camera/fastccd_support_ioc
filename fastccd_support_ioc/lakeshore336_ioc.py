@@ -14,10 +14,10 @@ lakeshore336 = Model336(ip_address='192.168.10.3') #TODO catch time out and try 
 
 class LakeshoreModel336(PVGroup):
 
-    Temperature = pvproperty_with_rbv
-    SetPoint = pvproperty_with_rbv
-    HeaterPower = pvproperty_with_rbv
-    HeaterSetup = pvproperty_with_rbv
+    Temperature = pvproperty_with_rbv(dtype=float)
+    SetPoint = pvproperty_with_rbv(dtype=float)
+    HeaterPower = pvproperty_with_rbv(dtype=float)
+    HeaterSetup = pvproperty_with_rbv(dtype=float)
 
     @Temperature.readback.getter
     async def Temperature(obj, instance):
