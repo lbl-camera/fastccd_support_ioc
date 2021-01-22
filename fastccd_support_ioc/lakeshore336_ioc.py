@@ -19,11 +19,11 @@ class LakeshoreModel336(PVGroup):
     HeaterPower = pvproperty_with_rbv
     HeaterSetup = pvproperty_with_rbv
 
-    @Temperature.setpoint.getter
+    @Temperature.readback.getter
     async def Temperature(obj, instance):
         lakeshore336.query('CRDG?')
 
-    @SetPoint.setpoint.getter
+    @SetPoint.readback.getter
     async def SetPoint(obj, instance, n):
         lakeshore336.query(f'SETP? {n}')
 
@@ -31,11 +31,11 @@ class LakeshoreModel336(PVGroup):
     async def SetPoint(obj, instance, n, value):
         lakeshore336.query(f'SETP? {n}, {value}')
 
-    @HeaterPower.setpoint.getter
+    @HeaterPower.readback.getter
     async def HeaterPower(obj, instance, n):
         lakeshore336.query(f'MOUT? {n}')
 
-    @HeaterSetup.setpoint.getter
+    @HeaterSetup.readback.getter
     async def HeaterSetup(obj, instance, n):
         lakeshore336.query(f'HTRSET? {n}')
 
