@@ -37,7 +37,7 @@ class LakeshoreModel336(PVGroup):
 
     @HeaterSetup.setpoint.getter
     async def HeaterSetup(obj, instance, n):
-        lakeshore336.query(f'HTRSET? {n}'
+        lakeshore336.query(f'HTRSET? {n}')
 
 
 
