@@ -1,3 +1,4 @@
+#!/home/cosmic/anaconda3/envs/test/bin/python
 from caproto.server import PVGroup, get_pv_pair_wrapper, conversion, pvproperty, ioc_arg_parser, run
 from lakeshore import Model336
 
