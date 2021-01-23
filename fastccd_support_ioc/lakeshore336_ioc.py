@@ -13,22 +13,47 @@ pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
 lakeshore336 = Model336(ip_address='192.168.10.3') #TODO catch time out and try to reconnect
 
 class LakeshoreModel336(PVGroup):
-    """ Lakeshore Model 336 IOC 
     """
-    Temperature = pvproperty_with_rbv(dtype=float, doc="Temperature")
-    SetPoint = pvproperty_with_rbv(dtype=float, doc="SetPoint", value=-20.0)
-    HeaterPower = pvproperty_with_rbv(dtype=float, doc="HeaterPower")
-    HeaterSetup = pvproperty_with_rbv(dtype=float, doc="HeaterSetup")
+    IOC for Lakeshore Model 336 IOC for Temperture Control
+    """
+    
+    TemperatureCelsius = pvproperty_with_rbv(dtype=float, doc="Temperature in Celsius")
+    TemperatureKelvin = pvproperty_with_rbv(dtype=float, doc="Temperature in Kelvin")
+    HeaterOutput = pvproperty_with_rbv(dtype=float, doc="Heater Power")
+    TempLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
+                                                     "all control outputs when exceeded. A temperature limit of "
+                                                     "zero turns the Temperature limit feature off for the given "
+                                                     "sensor input.")
+    SetPoint = pvproperty_with_rbv(dtype=float, doc="Set Point", value=-20.0)
 
-    @Temperature.readback.getter
-    async def Temperature(obj, instance):
-        print(lakeshore336.query('CRDG?'))
+
+    @TemperatureCelsius.readback.getter
+    async def TemperatureCelsius(obj, instance):
         return float(lakeshore336.query('CRDG?'))
 
-    @Temperature.readback.scan(period=1)
-    async def Temperature(obj, instance, async_lib):
+    @TemperatureCelsius.readback.scan(period=1)
+    async def TemperatureCelsius(obj, instance, async_lib):
         await instance.write(float(lakeshore336.query('CRDG?')))
 
+    @TemperatureKelvin.readback.getter
+    async def TemperatureKelvin(obj, instance):
+        return float(lakeshore336.query('KRDG?'))
+
+    @TemperatureKelvin.readback.scan(period=1)
+    async def TemperatureKelvin(obj, instance, async_lib):
+        await instance.write(float(lakeshore336.query('KRDG?')))
+
+    @TempLimit.readback.getter
+    async def TempLimit(obj, instance):
+        return float(lakeshore336.query('TLIMIT? A'))
+
+    @TempLimit.setpoint.putter
+    async def TempLimit(obj, instance, value):
+        lakeshore336.query(f'TLIMIT A, {value}')
+
+    @HeaterOutput.readback.getter
+    async def HeaterOutput(obj, instance):
+        return float(lakeshore336.query('HTR? 1'))
 
     @SetPoint.readback.getter
     async def SetPoint(obj, instance):
@@ -36,15 +61,9 @@ class LakeshoreModel336(PVGroup):
 
     @SetPoint.setpoint.putter
     async def SetPoint(obj, instance, value):
-        lakeshore336.query(f'SETP? 1, {value}')
+        lakeshore336.query(f'SETP 1, {value}')
 
-    @HeaterPower.readback.getter
-    async def HeaterPower(obj, instance):
-        return float(lakeshore336.query(f'MOUT? 1'))
 
-    @HeaterSetup.readback.getter
-    async def HeaterSetup(obj, instance):
-        return float(lakeshore336.query(f'HTRSET? 1'))
 
 
 
