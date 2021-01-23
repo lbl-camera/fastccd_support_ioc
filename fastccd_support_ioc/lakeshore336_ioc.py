@@ -17,7 +17,7 @@ class LakeshoreModel336(PVGroup):
     """
     IOC for Lakeshore Model 336 IOC for Temperture Control
     """
-    
+
     TemperatureCelsius = pvproperty_with_rbv(dtype=float, doc="Temperature in Celsius")
     TemperatureKelvin = pvproperty_with_rbv(dtype=float, doc="Temperature in Kelvin")
     HeaterOutput = pvproperty_with_rbv(dtype=float, doc="Heater Power")
@@ -44,6 +44,7 @@ class LakeshoreModel336(PVGroup):
     async def TemperatureKelvin(obj, instance, async_lib):
         await instance.write(float(lakeshore336.query('KRDG?')))
 
+    #TODO check which input channel is required?
     @TempLimit.readback.getter
     async def TempLimit(obj, instance):
         return float(lakeshore336.query('TLIMIT? A'))
