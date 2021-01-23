@@ -13,31 +13,38 @@ pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
 lakeshore336 = Model336(ip_address='192.168.10.3') #TODO catch time out and try to reconnect
 
 class LakeshoreModel336(PVGroup):
-
+    """ Lakeshore Model 336 IOC 
+    """
     Temperature = pvproperty_with_rbv(dtype=float, doc="Temperature")
-    SetPoint = pvproperty_with_rbv(dtype=float, doc="SetPoint", n=1, value=-20.0)
+    SetPoint = pvproperty_with_rbv(dtype=float, doc="SetPoint", value=-20.0)
     HeaterPower = pvproperty_with_rbv(dtype=float, doc="HeaterPower")
     HeaterSetup = pvproperty_with_rbv(dtype=float, doc="HeaterSetup")
 
     @Temperature.readback.getter
     async def Temperature(obj, instance):
-        return lakeshore336.query('CRDG?')
+        print(lakeshore336.query('CRDG?'))
+        return float(lakeshore336.query('CRDG?'))
+
+    @Temperature.readback.scan(period=1)
+    async def Temperature(obj, instance, async_lib):
+        await instance.write(float(lakeshore336.query('CRDG?')))
+
 
     @SetPoint.readback.getter
-    async def SetPoint(obj, instance, n):
-        return lakeshore336.query(f'SETP? {n}')
+    async def SetPoint(obj, instance):
+        return float(lakeshore336.query('SETP? 1'))
 
     @SetPoint.setpoint.putter
-    async def SetPoint(obj, instance, n, value):
-        lakeshore336.query(f'SETP? {n}, {value}')
+    async def SetPoint(obj, instance, value):
+        lakeshore336.query(f'SETP? 1, {value}')
 
     @HeaterPower.readback.getter
-    async def HeaterPower(obj, instance, n):
-        return lakeshore336.query(f'MOUT? 1')
+    async def HeaterPower(obj, instance):
+        return float(lakeshore336.query(f'MOUT? 1'))
 
     @HeaterSetup.readback.getter
-    async def HeaterSetup(obj, instance, n):
-        return lakeshore336.query(f'HTRSET? 1')
+    async def HeaterSetup(obj, instance):
+        return float(lakeshore336.query(f'HTRSET? 1'))
 
 
 
