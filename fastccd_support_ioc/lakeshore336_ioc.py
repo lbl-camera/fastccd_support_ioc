@@ -17,7 +17,7 @@ class LakeshoreModel336(PVGroup):
     """ Lakeshore Model 336 IOC 
     """
     Temperature = pvproperty_with_rbv(dtype=float, doc="Temperature")
-    SetPoint = pvproperty_with_rbv(dtype=float, doc="SetPoint", value=-20.0)
+    SetPoint = pvproperty_with_rbv(dtype=float, doc="SetPoint")
     HeaterPower = pvproperty_with_rbv(dtype=float, doc="HeaterPower")
     HeaterSetup = pvproperty_with_rbv(dtype=float, doc="HeaterSetup")
 
