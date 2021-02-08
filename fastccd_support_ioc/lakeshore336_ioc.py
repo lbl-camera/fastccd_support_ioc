@@ -18,10 +18,10 @@ class LakeshoreModel336(PVGroup):
     IOC for Lakeshore Model 336 IOC for Temperture Control
     """
 
-    TemperatureCelsius = pvproperty_with_rbv(dtype=float, doc="Temperature in Celsius")
-    TemperatureKelvin = pvproperty_with_rbv(dtype=float, doc="Temperature in Kelvin")
-    HeaterOutput = pvproperty_with_rbv(dtype=float, doc="Heater Power")
-    TempLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
+    TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius")
+    TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin")
+    HeaterOutput = pvproperty(dtype=float, doc="Heater Power")
+    TemperatureLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
                                                      "all control outputs when exceeded. A temperature limit of "
                                                      "zero turns the Temperature limit feature off for the given "
                                                      "sensor input.")
@@ -34,7 +34,7 @@ class LakeshoreModel336(PVGroup):
 
     @TemperatureCelsius.readback.scan(period=1)
     async def TemperatureCelsius(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('CRDG?')))
+        await instance.write(float(lakeshore336.query('KRDG?')))
 
     @TemperatureKelvin.readback.getter
     async def TemperatureKelvin(obj, instance):
@@ -45,11 +45,11 @@ class LakeshoreModel336(PVGroup):
         await instance.write(float(lakeshore336.query('KRDG?')))
 
     #TODO check which input channel is required?
-    @TempLimit.readback.getter
+    @TemperatureLimit.readback.getter
     async def TempLimit(obj, instance):
         return float(lakeshore336.query('TLIMIT? A'))
 
-    @TempLimit.setpoint.putter
+    @TemperatureLimit.setpoint.putter
     async def TempLimit(obj, instance, value):
         lakeshore336.query(f'TLIMIT A, {value}')
 
