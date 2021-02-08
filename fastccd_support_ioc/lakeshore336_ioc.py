@@ -28,19 +28,19 @@ class LakeshoreModel336(PVGroup):
     SetPoint = pvproperty_with_rbv(dtype=float, doc="Set Point", value=-20.0)
 
 
-    @TemperatureCelsius.readback.getter
+    @TemperatureCelsius.getter
     async def TemperatureCelsius(obj, instance):
         return float(lakeshore336.query('CRDG?'))
 
-    @TemperatureCelsius.readback.scan(period=1)
+    @TemperatureCelsius.scan(period=1)
     async def TemperatureCelsius(obj, instance, async_lib):
         await instance.write(float(lakeshore336.query('KRDG?')))
 
-    @TemperatureKelvin.readback.getter
+    @TemperatureKelvin.getter
     async def TemperatureKelvin(obj, instance):
         return float(lakeshore336.query('KRDG?'))
 
-    @TemperatureKelvin.readback.scan(period=1)
+    @TemperatureKelvin.scan(period=1)
     async def TemperatureKelvin(obj, instance, async_lib):
         await instance.write(float(lakeshore336.query('KRDG?')))
 
@@ -53,7 +53,7 @@ class LakeshoreModel336(PVGroup):
     async def TemperatureLimit(obj, instance, value):
         lakeshore336.query(f'TLIMIT A, {value}')
 
-    @HeaterOutput.readback.getter
+    @HeaterOutput.getter
     async def HeaterOutput(obj, instance):
         return float(lakeshore336.query('HTR? 1'))
 
