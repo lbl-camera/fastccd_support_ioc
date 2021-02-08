@@ -46,11 +46,11 @@ class LakeshoreModel336(PVGroup):
 
     #TODO check which input channel is required?
     @TemperatureLimit.readback.getter
-    async def TempLimit(obj, instance):
+    async def TemperatureLimit(obj, instance):
         return float(lakeshore336.query('TLIMIT? A'))
 
     @TemperatureLimit.setpoint.putter
-    async def TempLimit(obj, instance, value):
+    async def TemperatureLimit(obj, instance, value):
         lakeshore336.query(f'TLIMIT A, {value}')
 
     @HeaterOutput.readback.getter
