@@ -32,7 +32,8 @@ setup(
     entry_points={
         'console_scripts': [
             'fastccd_support_ioc=fastccd_support_ioc.fastccd_support_ioc:main',
-            'delay_generator_ioc=fastccd_support_ioc.delay_generator_ioc:main'
+            'delay_generator_ioc=fastccd_support_ioc.delay_generator_ioc:main',
+            'lakeshore336_ioc=fastccd_support_ioc.lakeshore336_ioc:main'
         ],
     },
     extras_require={
