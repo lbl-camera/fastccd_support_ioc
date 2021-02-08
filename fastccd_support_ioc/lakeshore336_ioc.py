@@ -21,6 +21,7 @@ class LakeshoreModel336(PVGroup):
     TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius")
     TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin")
     HeaterOutput = pvproperty(dtype=float, doc="Heater Power")
+
     TemperatureLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
                                                      "all control outputs when exceeded. A temperature limit of "
                                                      "zero turns the Temperature limit feature off for the given "
@@ -46,11 +47,11 @@ class LakeshoreModel336(PVGroup):
 
     #TODO check which input channel is required?
     @TemperatureLimit.readback.getter
-    async def TempLimit(obj, instance):
+    async def TemperatureLimit(obj, instance):
         return float(lakeshore336.query('TLIMIT? A'))
 
     @TemperatureLimit.setpoint.putter
-    async def TempLimit(obj, instance, value):
+    async def TemperatureLimit(obj, instance, value):
         lakeshore336.query(f'TLIMIT A, {value}')
 
     @HeaterOutput.readback.getter
