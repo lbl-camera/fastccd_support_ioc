@@ -34,7 +34,7 @@ class LakeshoreModel336(PVGroup):
 
     @TemperatureCelsius.scan(period=1)
     async def TemperatureCelsius(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('KRDG?')))
+        await instance.write(float(lakeshore336.query('CRDG?')))
 
     @TemperatureKelvin.getter
     async def TemperatureKelvin(obj, instance):
