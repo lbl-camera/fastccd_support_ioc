@@ -20,9 +20,9 @@ class LakeshoreModel336(PVGroup):
     https://www.lakeshore.com/docs/default-source/product-downloads/336_manual.pdf?sfvrsn=fa4e3a80_5
     """
 
-    TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius")
-    TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin")
-    HeaterOutput = pvproperty(dtype=float, doc="Heater Power")
+    TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius", name="Temperature (C)")
+    TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin", name="Temperature (K)")
+    HeaterOutput = pvproperty(dtype=float, doc="Heater Power", name="Heater Power")
 
     TemperatureLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
                                                      "all control outputs when exceeded. A temperature limit of "
