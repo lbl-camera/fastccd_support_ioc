@@ -20,15 +20,15 @@ class LakeshoreModel336(PVGroup):
     https://www.lakeshore.com/docs/default-source/product-downloads/336_manual.pdf?sfvrsn=fa4e3a80_5
     """
 
-    TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius")
-    TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin")
-    HeaterOutput = pvproperty(dtype=float, doc="Heater Power")
+    TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius", precision=2)
+    TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin", precision=2)
+    HeaterOutput = pvproperty(dtype=float, doc="Heater Power", precision=2)
 
     TemperatureLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
                                                      "all control outputs when exceeded. A temperature limit of "
                                                      "zero turns the Temperature limit feature off for the given "
-                                                     "sensor input.")
-    TemperatureSetPoint = pvproperty_with_rbv(dtype=float, doc="Temperature set point", value=-20.0)
+                                                     "sensor input.", precision=2)
+    TemperatureSetPoint = pvproperty_with_rbv(dtype=float, doc="Temperature set point", value=-20.0, precision=2)
 
 
     @TemperatureCelsius.getter
