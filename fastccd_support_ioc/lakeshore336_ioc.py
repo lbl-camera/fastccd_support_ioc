@@ -60,6 +60,10 @@ class LakeshoreModel336(PVGroup):
     async def HeaterOutput(obj, instance):
         return float(lakeshore336.query('HTR? 1'))
 
+    @HeaterOutput.scan(period=1)
+    async def HeaterOutput(obj, instance, async_lib):
+        await instance.write(float(lakeshore336.query('HTR? 1')))
+
     @TemperatureSetPoint.readback.getter
     async def TemperatureSetPoint(obj, instance):
         return float(lakeshore336.query('SETP? 1'))
