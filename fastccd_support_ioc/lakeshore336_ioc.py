@@ -26,22 +26,22 @@ class LakeshoreModel336(PVGroup):
                                                      "all control outputs when exceeded. A temperature limit of "
                                                      "zero turns the Temperature limit feature off for the given "
                                                      "sensor input.")
-    SetPoint = pvproperty_with_rbv(dtype=float, doc="Set Point", value=-20.0)
+    TemperatureSetPoint = pvproperty_with_rbv(dtype=float, doc="Temperature set point", value=-20.0)
 
 
-    @TemperatureCelsius.readback.getter
+    @TemperatureCelsius.getter
     async def TemperatureCelsius(obj, instance):
         return float(lakeshore336.query('CRDG?'))
 
-    @TemperatureCelsius.readback.scan(period=1)
+    @TemperatureCelsius.scan(period=1)
     async def TemperatureCelsius(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('KRDG?')))
+        await instance.write(float(lakeshore336.query('CRDG?')))
 
-    @TemperatureKelvin.readback.getter
+    @TemperatureKelvin.getter
     async def TemperatureKelvin(obj, instance):
         return float(lakeshore336.query('KRDG?'))
 
-    @TemperatureKelvin.readback.scan(period=1)
+    @TemperatureKelvin.scan(period=1)
     async def TemperatureKelvin(obj, instance, async_lib):
         await instance.write(float(lakeshore336.query('KRDG?')))
 
@@ -54,16 +54,16 @@ class LakeshoreModel336(PVGroup):
     async def TemperatureLimit(obj, instance, value):
         lakeshore336.query(f'TLIMIT A, {value}')
 
-    @HeaterOutput.readback.getter
+    @HeaterOutput.getter
     async def HeaterOutput(obj, instance):
         return float(lakeshore336.query('HTR? 1'))
 
-    @SetPoint.readback.getter
-    async def SetPoint(obj, instance):
+    @TemperatureSetPoint.readback.getter
+    async def TemperatureSetPoint(obj, instance):
         return float(lakeshore336.query('SETP? 1'))
 
-    @SetPoint.setpoint.putter
-    async def SetPoint(obj, instance, value):
+    @TemperatureSetPoint.setpoint.putter
+    async def TemperatureSetPoint(obj, instance, value):
         lakeshore336.query(f'SETP 1, {value}')
 
 
@@ -74,7 +74,7 @@ def main():
     """Console script for lakeshore336_ioc."""
 
     ioc_options, run_options = ioc_arg_parser(
-        default_prefix='ES7011:LakeShore336:',
+        default_prefix='ES7011:FastCCD:',
         desc=dedent(LakeshoreModel336.__doc__))
     ioc = LakeshoreModel336(**ioc_options)
     run(ioc.pvdb, **run_options)
