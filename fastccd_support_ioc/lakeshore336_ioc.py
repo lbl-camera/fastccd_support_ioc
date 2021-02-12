@@ -16,6 +16,8 @@ lakeshore336 = Model336(ip_address='192.168.10.3') #TODO catch time out and try 
 class LakeshoreModel336(PVGroup):
     """
     IOC for Lakeshore Model 336 IOC for Temperture Control
+    see manual for commands:
+    https://www.lakeshore.com/docs/default-source/product-downloads/336_manual.pdf?sfvrsn=fa4e3a80_5
     """
 
     TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius", precision=3)
