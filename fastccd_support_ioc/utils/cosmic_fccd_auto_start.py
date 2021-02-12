@@ -14,7 +14,9 @@ import time
 # Check voltages with +-.2 V ranges from getCameraPower.py
 
 # Power Cycle CIN to clear stale configurations
-from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power
+from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power, temp_check
+
+temp_check()
 
 cin_functions.CINPowerDown()
 cin_functions.CINPowerUp()
@@ -97,6 +99,8 @@ if not sendBiasConfig(config_dir + "BiasConfig.txt"):
 
     raise ValueError(
         'The camera bias/clock readback values were outside an acceptable range. The camera has been powered down.')
+
+temp_check()
 
 import setClocksBiasOn
 
