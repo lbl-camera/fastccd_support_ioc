@@ -18,14 +18,14 @@ class LakeshoreModel336(PVGroup):
     IOC for Lakeshore Model 336 IOC for Temperture Control
     """
 
-    TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius")
-    TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin")
-    HeaterOutput = pvproperty(dtype=float, doc="Heater Power")
+    TemperatureCelsius = pvproperty(dtype=float, doc="Temperature in Celsius", precision=3)
+    TemperatureKelvin = pvproperty(dtype=float, doc="Temperature in Kelvin", precision=3)
+    HeaterOutput = pvproperty(dtype=float, doc="Heater Power", precision=3)
     TemperatureLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
                                                      "all control outputs when exceeded. A temperature limit of "
                                                      "zero turns the Temperature limit feature off for the given "
                                                      "sensor input.")
-    SetPoint = pvproperty_with_rbv(dtype=float, doc="Set Point", value=-20.0)
+    SetPoint = pvproperty_with_rbv(dtype=float, doc="Set Point", value=-20.0, precision=3)
 
 
     @TemperatureCelsius.readback.getter
