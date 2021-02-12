@@ -6,11 +6,12 @@ import socket
 from fastccd_support_ioc.utils.cin_functions import WriteReg, ReadReg
 from fastccd_support_ioc.utils.cin_register_map import REG_COMMAND, REG_READ_ADDRESS, \
     REG_BIASANDCLOCKREGISTERADDRESS_REG, REG_BIASREGISTERDATAOUT_REG
+from caproto.sync.client import read
 
 
-# TODO: acceptable ranges for camera power (+-5%), bias/clocks
-# TODO: biasAndVoltageRange has two different sets of values; which is correct?
-# TODO: how to get setpoint values for bias/clocks for comparison
+def temp_check():
+    if not read('ES7011:FastCCD:TemperatureCelsius').data[0] < -10.:
+        raise AssertionError('Camera is not cold enough to power on completely (< -10 C)')
 
 
 def check_FOPS(VOLTAGE_MARGIN=.2) -> bool:
@@ -101,7 +102,7 @@ def check_camera_power(VOLTAGE_MARGIN=.2) -> bool:
     if (tv < 0.05): tv = 0
     if (ta < 0.001): ta = 0
     # print("A15V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
-    if not _within_range(tv, 15, .75):
+    if not _within_range(tv, 15):
         return False
 
     s.sendall(b'MEAS:VOLT? (@104)\r\n')
@@ -113,7 +114,7 @@ def check_camera_power(VOLTAGE_MARGIN=.2) -> bool:
     if (tv < 0.05): tv = 0
     if (ta < 0.001): ta = 0
     # print("B15V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
-    if not _within_range(tv, 15, .75):
+    if not _within_range(tv, 15):
         return False
 
     s.sendall(b'MEAS:VOLT? (@105)\r\n')
@@ -125,7 +126,7 @@ def check_camera_power(VOLTAGE_MARGIN=.2) -> bool:
     if (tv < 0.05): tv = 0
     if (ta < 0.001): ta = 0
     # print("A30V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
-    if not _within_range(tv, 30, 1.5):
+    if not _within_range(tv, 30):
         return False
 
     s.sendall(b'MEAS:VOLT? (@106)\r\n')
@@ -137,7 +138,7 @@ def check_camera_power(VOLTAGE_MARGIN=.2) -> bool:
     if (tv < 0.05): tv = 0
     if (ta < 0.001): ta = 0
     # print("B30V : " + str(tv) + "V @ " + str(ta)[:6] + "A")
-    if not _within_range(tv, 30, 1.5):
+    if not _within_range(tv, 30):
         return False
 
     # print()
@@ -195,5 +196,14 @@ def _read_register_through_mailbox(register_index: int):
     return ((int(result, 16) & 0x3fff) * BIAS_AND_VOLTAGE_RANGES[register_index]) / 4096.
 
 
-def _within_range(value, target, margin=.2):
-    return target - margin < value < target + margin
+def _within_range(value, target, margin=None, percent=.05):
+    if margin:
+        within_range = target - margin < value < target + margin
+
+    else:
+        within_range = target * (1 - percent) < value < target * (1 + percent)
+
+    if not within_range:
+        print('Value {value} outside range {margin}/{percent} of target {target}')
+
+    return within_range
