@@ -29,7 +29,7 @@ class FCCDSupport(PVGroup):
         self.camera_prefix = camera_prefix
         self.shutter_prefix = shutter_prefix
         self.hdf5_prefix = hdf5_prefix
-        self._capture_goal = 0
+        self._capture_goal = [0]
         self._active_subprocess = None
         self._subprocess_completion_state = None
         super(FCCDSupport, self).__init__(*args, **kwargs)
@@ -75,8 +75,9 @@ class FCCDSupport(PVGroup):
     async def check_finished(self, pv, response):
         # todo: make sure this is a falling edge
         print('data:', response.data[0])
+        print('capture_goal: ', self._capture_goal[0])
 
-        if response.data[0] == self._capture_goal:
+        if response.data[0] == self._capture_goal[0]:
             print('finished!')
             await self.AdjustedAcquire.write(0)
 
@@ -107,9 +108,9 @@ class FCCDSupport(PVGroup):
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
     AdjustedAcquireTime = pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
-                                              cls_kwargs={'precision': 3, 'units': 's'})
+                                              precision=3, units='s')
     AdjustedAcquirePeriod = pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
-                                                cls_kwargs={'precision': 3, 'units': 's'})
+                                                precision= 3,units='s')
     AdjustedAcquire = pvproperty(value=0, dtype=int)
 
     @AdjustedAcquire.startup
@@ -121,13 +122,14 @@ class FCCDSupport(PVGroup):
     async def AdjustedAcquire(self, instance, value):
         self._capture_goal = read(self.hdf5_prefix + 'NumCapture').data
         # write(self.shutter_prefix + 'TriggerEnabled', [int(value)])
-        # write(self.hdf5_prefix + 'Capture', [value])
-        print(f'comparing: {value} {instance.value}')
-        if value != instance.value:
-            write(self.camera_prefix + 'Acquire', [0])
+        if value == 1:
+            write(self.hdf5_prefix + 'Capture', [value])
+        # print(f'comparing: {value} {instance.value}')
+        # if value != instance.value:
+            # write(self.camera_prefix + 'Acquire', [0])
             # import time
             # time.sleep(1)
-            write(self.camera_prefix + 'Acquire', [1])
+            # write(self.camera_prefix + 'Acquire', [1])
             # time.sleep(1)
         return value
 
