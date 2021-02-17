@@ -28,7 +28,7 @@ class FCCDSupport(PVGroup):
         self.camera_prefix = camera_prefix
         self.shutter_prefix = shutter_prefix
         self.hdf5_prefix = hdf5_prefix
-        self._capture_goal = 0
+        self._capture_goal = [0]
         self._active_subprocess = None
         self._subprocess_completion_state = None
         super(FCCDSupport, self).__init__(*args, **kwargs)
@@ -77,7 +77,7 @@ class FCCDSupport(PVGroup):
         # todo: make sure this is a falling edge
         print('num_captured:', response.data[0])
 
-        if response.data[0] == self._capture_goal:
+        if response.data[0] == self._capture_goal[0]:
             print('finished!')
             await self.AdjustedAcquire.write(0)
 
@@ -111,15 +111,16 @@ class FCCDSupport(PVGroup):
     Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
-    AdjustedAcquireTime = pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float, precision=3, units='s')
-    AdjustedAcquirePeriod = pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float, precision=3, units='s')
+    AdjustedAcquireTime = pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
+                                              precision=3, units='s')
+    AdjustedAcquirePeriod = pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
+                                                precision=3, units='s')
     AdjustedAcquire = pvproperty(value=0, dtype=int)
 
     @AdjustedAcquire.startup
     async def AdjustedAcquire(self, instance, async_lib):
         # write to Acquire to start the camera up in tv mode
         write(self.camera_prefix + 'Acquire', [1])
-        self.async_lib = async_lib
 
     @AdjustedAcquire.putter
     async def AdjustedAcquire(self, instance, value):
