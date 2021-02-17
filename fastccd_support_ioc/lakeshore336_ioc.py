@@ -27,9 +27,8 @@ class LakeshoreModel336(PVGroup):
     TemperatureLimit = pvproperty_with_rbv(dtype=float, doc="Temperature Limit (input A) in Kelvin for which to shut down"
                                                      "all control outputs when exceeded. A temperature limit of "
                                                      "zero turns the Temperature limit feature off for the given "
-                                                     "sensor input.", precision=2)
+                                                            "sensor input.", precision=2)
     TemperatureSetPoint = pvproperty_with_rbv(dtype=float, doc="Temperature set point", value=-20.0, precision=2)
-
 
     @TemperatureCelsius.getter
     async def TemperatureCelsius(obj, instance):
