@@ -123,6 +123,10 @@ class FCCDSupport(PVGroup):
 
     @AdjustedAcquire.putter
     async def AdjustedAcquire(self, instance, value):
+        # Wait one pulse width; this assures that the first frame is always a full frame,
+        # and that the dark frame is always a full dark frame
+        await self.async_lib.library.sleep(self.AdjustedAcquirePeriod.readback.value)
+
         # self._capture_goal = read(self.hdf5_prefix + 'NumCapture').data
         # write(self.shutter_prefix + 'TriggerEnabled', [int(value)])
         # if value == 1:
@@ -133,9 +137,9 @@ class FCCDSupport(PVGroup):
         # finished writing
         if value != instance.value:
             write(self.camera_prefix + 'Acquire', [0])
-            self.async_lib.library.sleep(.1)
+            await self.async_lib.library.sleep(.1)
             write(self.camera_prefix + 'Acquire', [1])
-            self.async_lib.library.sleep(.1)
+            await self.async_lib.library.sleep(.1)
         return value
 
     @AdjustedAcquireTime.setpoint.putter
