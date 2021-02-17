@@ -16,7 +16,7 @@ import time
 # Power Cycle CIN to clear stale configurations
 from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power, temp_check
 
-temp_check()
+# temp_check()
 
 cin_functions.CINPowerDown()
 cin_functions.CINPowerUp()
@@ -52,6 +52,11 @@ cin_functions.WriteReg("8209", "0064", 1)  # LS Byte
 
 # Set Num Exposures == 1
 cin_functions.WriteReg("820C", "0001", 1)
+
+# Don't power up (for testing)
+exit(0)
+
+temp_check()
 
 # Power up Front Panel boards & FO Modules
 import setFPPowerOn
