@@ -1,11 +1,11 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 import subprocess
-
 import cin_constants
 import cin_register_map
 import cin_functions
 import time
+from caproto.sync.client import write
 
 # TODO: Add these checks:
 # Front panel boards:
@@ -52,6 +52,14 @@ cin_functions.WriteReg("8209", "0064", 1)  # LS Byte
 
 # Set Num Exposures == 1
 cin_functions.WriteReg("820C", "0001", 1)
+
+# Don't power up (for testing)
+print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
+time.sleep(10)
+# write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
+write('ES7011:FastCCD:cam1:Acquire', 1)  # always necessary after restart
+
+temp_check()
 
 # Power up Front Panel boards & FO Modules
 import setFPPowerOn

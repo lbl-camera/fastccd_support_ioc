@@ -1,7 +1,6 @@
 import subprocess
 from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
-from fastccd_support_ioc.utils.protection_checks import check_FOPS
 
 from . import utils, pvproperty_with_rbv, wrap_autosave
 from textwrap import dedent
@@ -65,19 +64,25 @@ class FCCDSupport(PVGroup):
 
         self._context = Context()
 
-        self.pv, = await self._context.get_pvs(self.hdf5_prefix + 'NumCaptured_RBV')
+        self.num_captured_rbv_pv, = await self._context.get_pvs(self.hdf5_prefix + 'NumCaptured_RBV')
+        self.num_captured_rbv_sub = self.num_captured_rbv_pv.subscribe(data_type=ChannelType.INT)
+        self.num_captured_rbv_sub.add_callback(self.check_finished)
 
-        self.sub = self.pv.subscribe(data_type=ChannelType.INT)
-
-        self.sub.add_callback(self.check_finished)
+        self.num_capture_pv, = await self._context.get_pvs(self.hdf5_prefix + 'NumCapture')
+        self.num_capture_sub = self.num_capture_pv.subscribe(data_type=ChannelType.INT)
+        self.num_capture_sub.add_callback(self.set_goal)
 
     async def check_finished(self, pv, response):
         # todo: make sure this is a falling edge
-        print('data:', response.data[0])
+        print('num_captured:', response.data[0])
 
         if response.data[0] == self._capture_goal:
             print('finished!')
             await self.AdjustedAcquire.write(0)
+
+    async def set_goal(self, pv, response):
+        print('num_capture (goal):', response.data[0])
+        self._capture_goal = response.data[0]
 
     @State.getter
     async def State(self, instance):
@@ -108,28 +113,37 @@ class FCCDSupport(PVGroup):
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
     AdjustedAcquireTime = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
-                                              cls_kwargs={'precision': 3, 'units': 's'}))
+                                              precision=3, units='s')
     AdjustedAcquirePeriod = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
-                                                cls_kwargs={'precision': 3, 'units': 's'}))
+                                              precision=3, units='s')
+
     AdjustedAcquire = pvproperty(value=0, dtype=int)
 
     @AdjustedAcquire.startup
     async def AdjustedAcquire(self, instance, async_lib):
         # write to Acquire to start the camera up in tv mode
         write(self.camera_prefix + 'Acquire', [1])
+        self.async_lib = async_lib
 
     @AdjustedAcquire.putter
     async def AdjustedAcquire(self, instance, value):
-        self._capture_goal = read(self.hdf5_prefix + 'NumCapture').data
+        # Wait one pulse width; this assures that the first frame is always a full frame,
+        # and that the dark frame is always a full dark frame
+        await self.async_lib.library.sleep(self.AdjustedAcquirePeriod.readback.value)
+
+        # self._capture_goal = read(self.hdf5_prefix + 'NumCapture').data
         # write(self.shutter_prefix + 'TriggerEnabled', [int(value)])
-        # write(self.hdf5_prefix + 'Capture', [value])
-        print(f'comparing: {value} {instance.value}')
+        # if value == 1:
+        #     write(self.hdf5_prefix + 'Capture', [value])
+        # print(f'comparing: {value} {instance.value}')
+
+        # toggle Acquire pv; this closes the current file and is necessary to inform bluesky that the HDF plugin is
+        # finished writing
         if value != instance.value:
             write(self.camera_prefix + 'Acquire', [0])
-            # import time
-            # time.sleep(1)
+            await self.async_lib.library.sleep(.1)
             write(self.camera_prefix + 'Acquire', [1])
-            # time.sleep(1)
+            await self.async_lib.library.sleep(.1)
         return value
 
     @AdjustedAcquireTime.setpoint.putter
