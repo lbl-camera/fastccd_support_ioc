@@ -5,10 +5,8 @@ from lakeshore import Model336
 import sys
 from textwrap import dedent
 import logging
+from . import pvproperty_with_rbv
 logger = logging.getLogger('caproto')
-
-pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
-                                          readback_suffix='_RBV')
 
 
 lakeshore336 = Model336(ip_address='192.168.10.3') #TODO catch time out and try to reconnect

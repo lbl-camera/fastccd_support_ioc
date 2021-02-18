@@ -1,17 +1,16 @@
 import subprocess
-from caproto.server import PVGroup, pvproperty, get_pv_pair_wrapper
+from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 
-from . import utils
+from . import utils, pvproperty_with_rbv, wrap_autosave
 from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
 from caproto.sync.client import write, read
 from caproto.asyncio.client import Context
+from caproto.server.autosave import AutosaveHelper, autosaved
 from caproto._utils import CaprotoTimeoutError
 
-pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
-                                          readback_suffix='_RBV')
 
 DEFAULT_ACQUIRETIME = 1
 DEFAULT_ACQUIREPERIOD = 1.1
@@ -108,13 +107,16 @@ class FCCDSupport(PVGroup):
     #     if not check_FOPS() and instance.value == "Initialized": # we can check any state here; if any of them go down during init, all of them go down
     #         await instance.write("Off")
 
+    autosave_helper = SubGroup(AutosaveHelper)
+
     Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
-    AdjustedAcquireTime = pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
+    AdjustedAcquireTime = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
                                               precision=3, units='s')
-    AdjustedAcquirePeriod = pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
-                                                precision=3, units='s')
+    AdjustedAcquirePeriod = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
+                                              precision=3, units='s')
+
     AdjustedAcquire = pvproperty(value=0, dtype=int)
 
     @AdjustedAcquire.startup
