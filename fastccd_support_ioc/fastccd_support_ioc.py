@@ -113,9 +113,9 @@ class FCCDSupport(PVGroup):
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
     AdjustedAcquireTime = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
-                                                            precision=3, units='s')
+                                                            precision=3, units='s'))
     AdjustedAcquirePeriod = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
-                                                              precision=3, units='s')
+                                                              precision=3, units='s'))
 
     AdjustedAcquire = pvproperty(value=0, dtype=int)
 
