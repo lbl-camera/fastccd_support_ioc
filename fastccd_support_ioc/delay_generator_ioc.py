@@ -1,16 +1,23 @@
-from caproto.server import PVGroup, get_pv_pair_wrapper, conversion, pvproperty
 import subprocess
 from textwrap import dedent
 import sys
-from caproto.server import ioc_arg_parser, run
+from caproto.server import PVGroup, get_pv_pair_wrapper, conversion, pvproperty, SubGroup, ioc_arg_parser, run
+from caproto.server.autosave import AutosaveHelper, autosaved
 from caproto import ChannelType
 import logging
+
 
 logger = logging.getLogger('caproto')
 
 # TODO: rename PVs to compliant convention
 # TODO: decide on PV naming convention
 # TODO: add docs to PVs
+
+
+def wrap_autosave(pvgroup:PVGroup):
+    pvgroup.readback = autosaved(pvgroup.readback)
+    pvgroup.setpoint = autosaved(pvgroup.setpoint)
+    return pvgroup
 
 
 def ibterm(command, caster=None):
@@ -45,11 +52,18 @@ class DelayGenerator(PVGroup):
     An IOC for the [something something] delay generator.
     """
 
-    TriggerRate = pvproperty_with_rbv(dtype=float, doc="TriggerRate", value=INITIAL_TRIGGER_RATE)
-    TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF", value=False)
+    autosave_helper = SubGroup(AutosaveHelper)
+
+    TriggerRate = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="TriggerRate", value=INITIAL_TRIGGER_RATE))
+    TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF", value=True)
     ShutterEnabled = pvproperty_with_rbv(dtype=bool, doc="ShutterOnOFF", value=False)
-    ShutterOpenDelay = pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035)
-    ShutterTime = pvproperty_with_rbv(dtype=float, doc="ShutterTime")
+    ShutterOpenDelay = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035))
+    ShutterTime = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="ShutterTime"))
+
+    def __init__(self, *args, **kwargs):
+        # TODO: Refactor and single-source this
+        ibterm(f"CL; DT 2,1,0; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}; TM 0")
+        super(DelayGenerator, self).__init__(*args, **kwargs)
 
     @TriggerRate.setpoint.putter
     async def TriggerRate(obj, instance, value):
@@ -120,7 +134,7 @@ class DelayGenerator(PVGroup):
 
         # clear and setup various parameters
         ibterm(
-            f"CL; DT 2,1,0; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}")
+            f"CL; DT 2,1,0; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}; TM 0")
         # Clear
         # Set 2 to trigger 1ms off of 1
         # Set 3 to trigger 140ms off of 2
@@ -156,15 +170,11 @@ class DelayGenerator(PVGroup):
     Initialize = pvproperty(value=0, dtype=int, put=initialize)
     Reset = pvproperty(value=0, dtype=int, put=reset)
 
-    @State.startup
-    async def State(self, instance, async_lib):
-        await self.State.write('Initialized')
-
     @State.shutdown
     async def State(self, instance, async_lib):
         await self.State.write('Uninitialized')
 
-    ShutterCloseDelay = pvproperty_with_rbv(dtype=float, doc="Shutter Close Delay", value=0.004)
+    ShutterCloseDelay = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="Shutter Close Delay", value=0.004))
 
 
 def main():
@@ -187,3 +197,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())  # pragma: no cover
+
