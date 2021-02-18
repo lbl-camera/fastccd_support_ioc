@@ -6,18 +6,13 @@ from caproto.server.autosave import AutosaveHelper, autosaved
 from caproto import ChannelType
 import logging
 
+from . import wrap_autosave, pvproperty_with_rbv
 
 logger = logging.getLogger('caproto')
 
 # TODO: rename PVs to compliant convention
 # TODO: decide on PV naming convention
 # TODO: add docs to PVs
-
-
-def wrap_autosave(pvgroup:PVGroup):
-    pvgroup.readback = autosaved(pvgroup.readback)
-    pvgroup.setpoint = autosaved(pvgroup.setpoint)
-    return pvgroup
 
 
 def ibterm(command, caster=None):
@@ -39,9 +34,6 @@ def ibterm(command, caster=None):
     else:
         raise ConnectionError('Failed to cast value 3 times.')
 
-
-pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
-                                          readback_suffix='_RBV')
 
 INITIAL_TRIGGER_RATE = 5
 SHUTTER_OUTPUT_AMPLITUDE = 3.3
