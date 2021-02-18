@@ -1,15 +1,12 @@
-import subprocess
 from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 
-from . import utils, pvproperty_with_rbv, wrap_autosave
+from . import utils, pvproperty_with_rbv, wrap_autosave, FastAutosaveHelper
 from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
 from caproto.sync.client import write, read
 from caproto.asyncio.client import Context
-from caproto.server.autosave import AutosaveHelper, autosaved
-from caproto._utils import CaprotoTimeoutError
 
 
 DEFAULT_ACQUIRETIME = 1
@@ -107,7 +104,7 @@ class FCCDSupport(PVGroup):
     #     if not check_FOPS() and instance.value == "Initialized": # we can check any state here; if any of them go down during init, all of them go down
     #         await instance.write("Off")
 
-    autosave_helper = SubGroup(AutosaveHelper)
+    autosave_helper = SubGroup(FastAutosaveHelper)
 
     Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
     Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)

@@ -1,12 +1,11 @@
 import subprocess
 from textwrap import dedent
 import sys
-from caproto.server import PVGroup, get_pv_pair_wrapper, conversion, pvproperty, SubGroup, ioc_arg_parser, run
-from caproto.server.autosave import AutosaveHelper, autosaved
+from caproto.server import PVGroup, conversion, pvproperty, SubGroup, ioc_arg_parser, run
 from caproto import ChannelType
 import logging
 
-from . import wrap_autosave, pvproperty_with_rbv
+from . import wrap_autosave, pvproperty_with_rbv, FastAutosaveHelper
 
 logger = logging.getLogger('caproto')
 
@@ -44,7 +43,7 @@ class DelayGenerator(PVGroup):
     An IOC for the [something something] delay generator.
     """
 
-    autosave_helper = SubGroup(AutosaveHelper)
+    autosave_helper = SubGroup(FastAutosaveHelper)
 
     TriggerRate = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="TriggerRate", value=INITIAL_TRIGGER_RATE))
     TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF", value=True)
