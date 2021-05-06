@@ -48,7 +48,8 @@ class DelayGenerator(PVGroup):
 
     TriggerRate = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="TriggerRate", value=INITIAL_TRIGGER_RATE))
     TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF", value=True)
-    ShutterEnabled = pvproperty_with_rbv(dtype=bool, doc="ShutterOnOFF", value=False)
+    #ShutterEnabled = pvproperty_with_rbv(dtype=bool, doc="ShutterOnOFF", value=False)
+    ShutterEnabled = pvproperty_with_rbv(dtype=ChannelType.ENUM, enum_strings=['TRIGGER', 'OPEN', 'CLOSED'], doc="ShutterState")
     ShutterOpenDelay = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035))
     ShutterTime = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="ShutterTime"))
 
@@ -77,17 +78,45 @@ class DelayGenerator(PVGroup):
     async def TriggerEnabled(obj, instance):
         return ibterm(f"tm", bool)
 
+    #@ShutterEnabled.setpoint.putter
+    #async def ShutterEnabled(obj, instance, on):
+        #logger.debug(f'setting triggering: {on}')
+        #if on == 'On':
+            #ibterm(f"OM 4,0; OA 4,.1")
+        #else:
+            #ibterm(f"OM 4,3")
+
     @ShutterEnabled.setpoint.putter
     async def ShutterEnabled(obj, instance, on):
         logger.debug(f'setting triggering: {on}')
-        if on == 'On':
-            ibterm(f"OM 4,0; OA 4,.1")
+        if on.upper() == 'TRIGGER':
+            ibterm(f"OM 4,0; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}")
+        elif on.upper() == 'OPEN':
+            ibterm(f"OM 4,3; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}")
+        elif on.upper() == 'CLOSED':
+            ibterm(f"OM 4,3; OA 4,.1")
         else:
-            ibterm(f"OM 4,3")
+            msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
+            raise ValueError(msg)
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
-        return ibterm(f"OM 4", float) == 0
+        mode = ibterm(f"OM 4", float)
+        amplitude = ibterm(f"OA 4", float)
+
+        if mode == 0:
+            return 'TRIGGER'
+        elif mode == 3:
+            if amplitude == SHUTTER_OUTPUT_AMPLITUDE:
+                return 'OPEN'
+            else:
+                return 'CLOSED'
+        else:
+            raise ValueError("Invalid shutter state has been set.") 
+
+    #@ShutterEnabled.readback.getter
+    #async def ShutterEnabled(obj, instance):
+        #return ibterm(f"OM 4", float) == 0
 
     # @ShutterOpenDelay.setpoint.putter
     # async def ShutterOpenDelay(obj, instance, delay):
