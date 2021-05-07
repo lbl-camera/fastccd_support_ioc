@@ -90,11 +90,11 @@ class DelayGenerator(PVGroup):
     async def ShutterEnabled(obj, instance, on):
         logger.debug(f'setting triggering: {on}')
         if on.upper() == 'TRIGGER':
-            ibterm(f"OM 4,0; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}")
+            ibterm(f"OM 4,0; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}; OO 4,0")
         elif on.upper() == 'OPEN':
-            ibterm(f"OM 4,3; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}")
+            ibterm(f"OM 4,3; OA 4,.1; OO 4,{SHUTTER_OUTPUT_AMPLITUDE}")
         elif on.upper() == 'CLOSED':
-            ibterm(f"OM 4,3; OA 4,.1")
+            ibterm(f"OM 4,3; OA 4,.1; OO 4,0")
         else:
             msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
             raise ValueError(msg)
@@ -103,14 +103,15 @@ class DelayGenerator(PVGroup):
     async def ShutterEnabled(obj, instance):
         mode = ibterm(f"OM 4", float)
         amplitude = ibterm(f"OA 4", float)
+        offset = ibterm(f"OO 4", float)
 
         if mode == 0:
             return 'TRIGGER'
         elif mode == 3:
-            if amplitude == SHUTTER_OUTPUT_AMPLITUDE:
-                return 'OPEN'
-            else:
+            if offset == 0:
                 return 'CLOSED'
+            else:
+                return 'OPEN'
         else:
             raise ValueError("Invalid shutter state has been set.") 
 
