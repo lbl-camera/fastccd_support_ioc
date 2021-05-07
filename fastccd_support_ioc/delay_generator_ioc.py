@@ -53,11 +53,6 @@ class DelayGenerator(PVGroup):
     ShutterOpenDelay = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035))
     ShutterTime = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="ShutterTime"))
 
-    def __init__(self, *args, **kwargs):
-        # TODO: Refactor and single-source this
-        ibterm(f"CL; DT 2,1,0; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}; TM 0")
-        super(DelayGenerator, self).__init__(*args, **kwargs)
-
     @TriggerRate.setpoint.putter
     async def TriggerRate(obj, instance, value):
         ibterm(f"tr 0,{value}")
@@ -88,16 +83,19 @@ class DelayGenerator(PVGroup):
 
     @ShutterEnabled.setpoint.putter
     async def ShutterEnabled(obj, instance, on):
+        on = on.upper()
+        print(f"Setting ShutterEnabled state: {on}")
         logger.debug(f'setting triggering: {on}')
-        if on.upper() == 'TRIGGER':
+        if on == 'TRIGGER':
             ibterm(f"OM 4,0; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}; OO 4,0")
-        elif on.upper() == 'OPEN':
+        elif on == 'OPEN':
             ibterm(f"OM 4,3; OA 4,.1; OO 4,{SHUTTER_OUTPUT_AMPLITUDE}")
-        elif on.upper() == 'CLOSED':
+        elif on == 'CLOSED':
             ibterm(f"OM 4,3; OA 4,.1; OO 4,0")
         else:
             msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
             raise ValueError(msg)
+        obj.readback.write(on)
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
@@ -172,6 +170,10 @@ class DelayGenerator(PVGroup):
         # only clear device
         ibterm(f"CL")
 
+    @State.startup
+    async def State(self, instance, async_lib):
+        await self.State.write('Initialized')
+
     @State.getter
     async def State(self, instance):
         return instance.value
@@ -179,6 +181,7 @@ class DelayGenerator(PVGroup):
     @State.putter
     async def State(self, instance, value):
         if value != instance.value:
+            print("setting state:", value)
             logger.debug("setting state:", value)
 
             if value == "Initialized":
