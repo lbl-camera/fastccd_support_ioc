@@ -49,7 +49,7 @@ class DelayGenerator(PVGroup):
     TriggerRate = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="TriggerRate", value=INITIAL_TRIGGER_RATE))
     TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF", value=True)
     #ShutterEnabled = pvproperty_with_rbv(dtype=bool, doc="ShutterOnOFF", value=False)
-    ShutterEnabled = pvproperty_with_rbv(dtype=ChannelType.ENUM, enum_strings=['TRIGGER', 'OPEN', 'CLOSED'], doc="ShutterState")
+    ShutterEnabled = pvproperty_with_rbv(dtype=ChannelType.ENUM, enum_strings=['TRIGGER', 'OPEN', 'CLOSED'], doc="ShutterState", value='TRIGGER')
     ShutterOpenDelay = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035))
     ShutterTime = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="ShutterTime"))
 
@@ -95,7 +95,7 @@ class DelayGenerator(PVGroup):
         else:
             msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
             raise ValueError(msg)
-        obj.readback.write(on)
+        await obj.readback.write(on)
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
