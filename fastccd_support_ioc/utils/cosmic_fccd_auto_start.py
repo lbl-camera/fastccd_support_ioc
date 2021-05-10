@@ -56,8 +56,8 @@ cin_functions.WriteReg("820C", "0001", 1)
 # Don't power up (for testing)
 print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
 time.sleep(10)
-# write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
 write('ES7011:FastCCD:cam1:Acquire', 1)  # always necessary after restart
+write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
 
 temp_check()
 
