@@ -67,10 +67,12 @@ class FCCDSupport(PVGroup):
             self._context = Context()
 
             self.num_captured_rbv_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCaptured_RBV')
+            await self.num_captured_rbv_pv.unsubscribe_all()
             self.num_captured_rbv_sub = self.num_captured_rbv_pv.subscribe(data_type=ChannelType.INT)
             self.num_captured_rbv_sub.add_callback(self.check_finished)
 
             self.num_capture_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCapture')
+            await self.num_capture_pv.unsubscribe_all()
             self.num_capture_sub = self.num_capture_pv.subscribe(data_type=ChannelType.INT)
             self.num_capture_sub.add_callback(self.set_goal)
 
