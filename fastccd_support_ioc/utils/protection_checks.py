@@ -204,6 +204,6 @@ def _within_range(value, target, margin=None, percent=.05):
         within_range = target * (1 - percent) < value < target * (1 + percent)
 
     if not within_range:
-        print('Value {value} outside range {margin}/{percent} of target {target}')
+        print(f'Value {value} outside range {margin}/{percent} of target {target}')
 
     return within_range
