@@ -53,12 +53,6 @@ cin_functions.WriteReg("8209", "0064", 1)  # LS Byte
 # Set Num Exposures == 1
 cin_functions.WriteReg("820C", "0001", 1)
 
-# Don't power up (for testing)
-print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
-time.sleep(10)
-write('ES7011:FastCCD:cam1:Acquire', 1)  # always necessary after restart
-write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
-
 temp_check()
 
 # Power up Front Panel boards & FO Modules
@@ -113,6 +107,13 @@ temp_check()
 import setClocksBiasOn
 
 print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
+
+time.sleep(10)
+try:
+    write('ES7011:FastCCD:cam1:Acquire', 1)  # always necessary after restart
+    write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
+except Exception as e:
+    raise RuntimeError("Setting Acquire / OverscanCols failed") from e
 
 if __name__ == "__main__":
     pass
