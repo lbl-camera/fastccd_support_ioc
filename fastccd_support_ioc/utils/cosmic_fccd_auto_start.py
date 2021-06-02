@@ -115,5 +115,12 @@ import setClocksBiasOn
 
 print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
 
+time.sleep(10)
+try:
+    write('ES7011:FastCCD:cam1:Acquire', 1)  # always necessary after restart
+    write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
+except Exception as e:
+    raise RuntimeError("Setting Acquire / OverscanCols failed") from e
+
 if __name__ == "__main__":
     pass
