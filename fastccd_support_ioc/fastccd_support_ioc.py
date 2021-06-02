@@ -185,17 +185,20 @@ class FCCDSupport(PVGroup):
                 print(f'checking subprocess: {self._active_subprocess}')
                 return_code = self._active_subprocess.poll()
                 if return_code is not None:
-                    self._active_subprocess = None
                     completion_state = self._subprocess_completion_state
-                    self._subprocess_completion_state = None
                     if return_code == 0:
                         print('Successful background process')
                         await self.State.write(completion_state)
                         await self.State.startup(None, None)
                     elif return_code > 0:
+                        await self.ErrorStatus.write(self._active_subprocess.stderr.read().decode())
                         await self.State.write('Off')
+                    self._active_subprocess = None
+                    self._subprocess_completion_state = None
 
         ReadoutTime = pvproperty(dtype=float, value=.080)
+
+        ErrorStatus = pvproperty(dtype=str, value="Unknown", read_only=True)
 
 
 def main():
