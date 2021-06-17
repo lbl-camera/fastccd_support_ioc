@@ -33,6 +33,7 @@ class FCCDSupport(PVGroup):
             self._capture_goal = 0
             self._active_subprocess = None
             self._subprocess_completion_state = None
+            self.num_captured_rbv_pv = None
 
         async def fccd_shutdown(self, instance, value):
             # Note: all the fccd scripts are injected into the utils module; you can call them like so:
@@ -48,7 +49,7 @@ class FCCDSupport(PVGroup):
             # utils.scripts.fccd_auto_start()
             if self._active_subprocess:
                 raise RuntimeError('Another background process is still running.')
-            self._active_subprocess = utils.scripts.cosmic_fccd_auto_start()
+            self._active_subprocess = utils.scripts.cosmic_fccd_auto_start(str(self.TestFrameMode.value))
             self._subprocess_completion_state = "Initialized"
 
         async def _fccd_shutdown(self, instance, value):
@@ -66,8 +67,9 @@ class FCCDSupport(PVGroup):
 
             self._context = Context()
 
+            if self.num_captured_rbv_pv:
+                await self.num_captured_rbv_pv.unsubscribe_all()
             self.num_captured_rbv_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCaptured_RBV')
-            await self.num_captured_rbv_pv.unsubscribe_all()
             self.num_captured_rbv_sub = self.num_captured_rbv_pv.subscribe(data_type=ChannelType.INT)
             self.num_captured_rbv_sub.add_callback(self.check_finished)
 
@@ -122,6 +124,8 @@ class FCCDSupport(PVGroup):
                                                                   precision=3, units='s'))
 
         AdjustedAcquire = pvproperty(value=0, dtype=int)
+
+        TestFrameMode = pvproperty(value=False, dtype=bool)
 
         @AdjustedAcquire.startup
         async def AdjustedAcquire(self, instance, async_lib):
@@ -191,7 +195,9 @@ class FCCDSupport(PVGroup):
                         await self.State.write(completion_state)
                         await self.State.startup(None, None)
                     elif return_code > 0:
-                        await self.ErrorStatus.write(self._active_subprocess.stderr.read().decode())
+                        error = self._active_subprocess.stderr.read().decode()
+                        print(error)
+                        await self.ErrorStatus.write(error)
                         await self.State.write('Off')
                     self._active_subprocess = None
                     self._subprocess_completion_state = None
