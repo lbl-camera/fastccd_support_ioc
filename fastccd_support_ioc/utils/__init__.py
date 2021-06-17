@@ -26,6 +26,10 @@ class scripts(object):
     ...
 
 
+def _run_script(path, *args):
+    return subprocess.Popen(['python', path, *args], stderr=subprocess.PIPE)
+
+
 scripts = scripts()
 
 print((glob.glob(os.path.join(__path__[0], '*.py'))))
@@ -39,4 +43,4 @@ for path in glob.iglob(os.path.join(__path__[0], '*.py')):
     #                 None))
     setattr(scripts,
             script_name,
-            partial(subprocess.Popen, ["python", path], stderr=subprocess.PIPE))
+            partial(_run_script, path))
