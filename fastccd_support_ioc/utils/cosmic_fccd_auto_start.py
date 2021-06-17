@@ -6,6 +6,7 @@ import cin_register_map
 import cin_functions
 import time
 from caproto.sync.client import write
+import sys
 
 # TODO: Add these checks:
 # Front panel boards:
@@ -16,7 +17,14 @@ from caproto.sync.client import write
 # Power Cycle CIN to clear stale configurations
 from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power, temp_check
 
-temp_check()
+print('argv:', sys.argv)
+test_frame_mode = sys.argv[1] == 'On'
+
+if not test_frame_mode:
+    print('Operating in ARMED mode')
+    temp_check()
+else:
+    print('Operating in test frame mode')
 
 cin_functions.CINPowerDown()
 cin_functions.CINPowerUp()
@@ -52,6 +60,14 @@ cin_functions.WriteReg("8209", "0064", 1)  # LS Byte
 
 # Set Num Exposures == 1
 cin_functions.WriteReg("820C", "0001", 1)
+
+if test_frame_mode:
+    # Don't power up (for testing)
+    print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
+    time.sleep(10)
+    write('ES7011:FastCCD:cam1:Acquire', 1)  # always necessary after restart
+    write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
+    exit(0)
 
 temp_check()
 
