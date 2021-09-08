@@ -14,6 +14,8 @@ logger = logging.getLogger('caproto')
 # TODO: decide on PV naming convention
 # TODO: add docs to PVs
 
+shutter_states = {'TRIGGER':0, 'OPEN':1, 'CLOSED':2}
+
 
 def ibterm(command, caster=None):
     command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
@@ -94,8 +96,10 @@ class DelayGenerator(PVGroup):
             ibterm(f"OM 4,3; OA 4,.1; OO 4,0")
         else:
             msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
-            raise ValueError(msg)
-        await obj.readback.write(on)
+            #raise ValueError(msg)
+            print(msg)
+            logger.debug(msg)
+        await obj.readback.write(shutter_states[on])
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
@@ -103,13 +107,15 @@ class DelayGenerator(PVGroup):
         amplitude = ibterm(f"OA 4", float)
         offset = ibterm(f"OO 4", float)
 
+        print(mode, amplitude, offset)
+
         if mode == 0:
-            return 'TRIGGER'
+            return 0 # 'TRIGGER'
         elif mode == 3:
             if offset == 0:
-                return 'CLOSED'
+                return 2 # 'CLOSED'
             else:
-                return 'OPEN'
+                return 1 # 'OPEN'
         else:
             raise ValueError("Invalid shutter state has been set.") 
 
