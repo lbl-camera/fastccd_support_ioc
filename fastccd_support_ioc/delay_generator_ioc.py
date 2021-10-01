@@ -13,6 +13,8 @@ logger = logging.getLogger('caproto')
 # TODO: decide on PV naming convention
 # TODO: add docs to PVs
 
+shutter_states = {'TRIGGER':0, 'OPEN':1, 'CLOSED':2}
+
 
 def ibterm(command, caster=None):
     command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
@@ -47,14 +49,10 @@ class DelayGenerator(PVGroup):
 
     TriggerRate = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="TriggerRate", value=INITIAL_TRIGGER_RATE))
     TriggerEnabled = pvproperty_with_rbv(dtype=bool, doc="TriggerOnOFF", value=True)
-    ShutterEnabled = pvproperty_with_rbv(dtype=bool, doc="ShutterOnOFF", value=False)
+    #ShutterEnabled = pvproperty_with_rbv(dtype=bool, doc="ShutterOnOFF", value=False)
+    ShutterEnabled = pvproperty_with_rbv(dtype=ChannelType.ENUM, enum_strings=['TRIGGER', 'OPEN', 'CLOSED'], doc="ShutterState", value='TRIGGER')
     ShutterOpenDelay = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="DelayTime", value=0.0035))
     ShutterTime = wrap_autosave(pvproperty_with_rbv(dtype=float, doc="ShutterTime"))
-
-    def __init__(self, *args, **kwargs):
-        # TODO: Refactor and single-source this
-        ibterm(f"CL; DT 2,1,0; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}; TM 0")
-        super(DelayGenerator, self).__init__(*args, **kwargs)
 
     @TriggerRate.setpoint.putter
     async def TriggerRate(obj, instance, value):
@@ -76,17 +74,53 @@ class DelayGenerator(PVGroup):
     async def TriggerEnabled(obj, instance):
         return ibterm(f"tm", bool)
 
+    #@ShutterEnabled.setpoint.putter
+    #async def ShutterEnabled(obj, instance, on):
+        #logger.debug(f'setting triggering: {on}')
+        #if on == 'On':
+            #ibterm(f"OM 4,0; OA 4,.1")
+        #else:
+            #ibterm(f"OM 4,3")
+
     @ShutterEnabled.setpoint.putter
     async def ShutterEnabled(obj, instance, on):
+        on = on.upper()
+        print(f"Setting ShutterEnabled state: {on}")
         logger.debug(f'setting triggering: {on}')
-        if on == 'On':
-            ibterm(f"OM 4,0; OA 4,.1")
+        if on == 'TRIGGER':
+            ibterm(f"OM 4,0; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}; OO 4,0")
+        elif on == 'OPEN':
+            ibterm(f"OM 4,3; OA 4,.1; OO 4,{SHUTTER_OUTPUT_AMPLITUDE}")
+        elif on == 'CLOSED':
+            ibterm(f"OM 4,3; OA 4,.1; OO 4,0")
         else:
-            ibterm(f"OM 4,3")
+            msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
+            #raise ValueError(msg)
+            print(msg)
+            logger.debug(msg)
+        await obj.readback.write(shutter_states[on])
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
-        return ibterm(f"OM 4", float) == 0
+        mode = ibterm(f"OM 4", float)
+        amplitude = ibterm(f"OA 4", float)
+        offset = ibterm(f"OO 4", float)
+
+        print(mode, amplitude, offset)
+
+        if mode == 0:
+            return 0 # 'TRIGGER'
+        elif mode == 3:
+            if offset == 0:
+                return 2 # 'CLOSED'
+            else:
+                return 1 # 'OPEN'
+        else:
+            raise ValueError("Invalid shutter state has been set.") 
+
+    #@ShutterEnabled.readback.getter
+    #async def ShutterEnabled(obj, instance):
+        #return ibterm(f"OM 4", float) == 0
 
     # @ShutterOpenDelay.setpoint.putter
     # async def ShutterOpenDelay(obj, instance, delay):
@@ -141,6 +175,10 @@ class DelayGenerator(PVGroup):
         # only clear device
         ibterm(f"CL")
 
+    @State.startup
+    async def State(self, instance, async_lib):
+        await self.State.write('Initialized')
+
     @State.getter
     async def State(self, instance):
         return instance.value
@@ -148,6 +186,7 @@ class DelayGenerator(PVGroup):
     @State.putter
     async def State(self, instance, value):
         if value != instance.value:
+            print("setting state:", value)
             logger.debug("setting state:", value)
 
             if value == "Initialized":
