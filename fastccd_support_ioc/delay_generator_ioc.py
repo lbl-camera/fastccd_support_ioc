@@ -18,7 +18,7 @@ def ibterm(command, caster=None):
     command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
     logger.debug(f'exec: {command}')
     print(f'exec: {command}')
-    for i in range(3):
+    for i in range(100):
         try:
             stdout = subprocess.check_output(command, shell=True)
             if caster:
@@ -29,7 +29,7 @@ def ibterm(command, caster=None):
             else:
                 break
         except ValueError:
-            print(f'Failed to cast value using {caster}, retrying: {value_string}')
+            print(f'Failed to cast value using {caster}, retrying attempt {i}: {value_string}')
     else:
         raise ConnectionError('Failed to cast value 3 times.')
 
