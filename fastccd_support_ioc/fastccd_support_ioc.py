@@ -34,6 +34,7 @@ class FCCDSupport(PVGroup):
             self._active_subprocess = None
             self._subprocess_completion_state = None
             self.num_captured_rbv_pv = None
+            self.num_capture_pv = None
 
         async def fccd_shutdown(self, instance, value):
             # Note: all the fccd scripts are injected into the utils module; you can call them like so:
@@ -69,13 +70,16 @@ class FCCDSupport(PVGroup):
 
             if self.num_captured_rbv_pv:
                 await self.num_captured_rbv_pv.unsubscribe_all()
-            self.num_captured_rbv_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCaptured_RBV')
-            self.num_captured_rbv_sub = self.num_captured_rbv_pv.subscribe(data_type=ChannelType.INT)
+            else:
+                self.num_captured_rbv_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCaptured_RBV')
+                self.num_captured_rbv_sub = self.num_captured_rbv_pv.subscribe(data_type=ChannelType.INT)
             self.num_captured_rbv_sub.add_callback(self.check_finished)
 
-            self.num_capture_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCapture')
-            await self.num_capture_pv.unsubscribe_all()
-            self.num_capture_sub = self.num_capture_pv.subscribe(data_type=ChannelType.INT)
+            if self.num_capture_pv:
+                await self.num_capture_pv.unsubscribe_all()
+            else:
+                self.num_capture_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCapture')
+                self.num_capture_sub = self.num_capture_pv.subscribe(data_type=ChannelType.INT)
             self.num_capture_sub.add_callback(self.set_goal)
 
         async def check_finished(self, pv, response):
