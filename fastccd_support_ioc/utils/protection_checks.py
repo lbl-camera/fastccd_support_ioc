@@ -10,8 +10,9 @@ from caproto.sync.client import read
 
 
 def temp_check():
-    if not read('ES7011:FastCCD:TemperatureCelsiusA').data[0] < -10.:
-        raise AssertionError('Camera is not cold enough to power on completely (< -10 C)')
+    if read('ES7011:FastCCD:TemperatureCelsiusA').data[0] > 0. or read('ES7011:FastCCD:TemperatureCelsiusB').data[
+        0] > 0.:
+        raise AssertionError('Camera is not cold enough to power on completely (< 0 C)')
 
 
 def check_FOPS(VOLTAGE_MARGIN=.2) -> bool:
