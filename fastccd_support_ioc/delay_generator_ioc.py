@@ -50,6 +50,7 @@ async def ibterm_write(command, value, caster=None, confirm=True):
     for i in range(100):
         if value == await ibterm_read(f'{command}', caster or type(value)):
             break
+        await ibterm_read(f'{command},{value}', caster)
     else:
         raise ConnectionError('Failed to cast value 100 times.')
 
