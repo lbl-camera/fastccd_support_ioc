@@ -35,6 +35,10 @@ class FCCDSupport(PVGroup):
             self._subprocess_completion_state = None
             self.num_captured_rbv_pv = None
             self.num_capture_pv = None
+            self.open_delay_pv = None
+            self.close_delay_pv = None
+            self.A_temp_pv = None
+            self.B_temp_pv = None
 
         async def fccd_shutdown(self, instance, value):
             # Note: all the fccd scripts are injected into the utils module; you can call them like so:
@@ -122,10 +126,10 @@ class FCCDSupport(PVGroup):
         Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
         Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
-        AdjustedAcquireTime = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
-                                                                precision=3, units='s'))
-        AdjustedAcquirePeriod = wrap_autosave(pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
-                                                                  precision=3, units='s'))
+        AdjustedAcquireTime = pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
+                                                  precision=3, units='s')
+        AdjustedAcquirePeriod = pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
+                                                    precision=3, units='s')
 
         AdjustedAcquire = pvproperty(value=0, dtype=int)
 
@@ -136,6 +140,14 @@ class FCCDSupport(PVGroup):
             # write to Acquire to start the camera up in tv mode
             write(self.parent.camera_prefix + 'Acquire', [1])
             self.async_lib = async_lib
+
+            self.open_delay_pv, self.close_delay_pv = await self._context.get_pvs(
+                self.parent.shutter_prefix + 'ShutterOpenDelay_RBV',
+                self.parent.shutter_prefix + 'ShutterCloseDelay_RBV')
+
+            self.A_temp_pv, self.B_temp_pv = await self._context.get_pvs(
+                'ES7011:FastCCD:TemperatureCelsiusA',
+                'ES7011:FastCCD:TemperatureCelsiusB')
 
         @AdjustedAcquire.putter
         async def AdjustedAcquire(self, instance, value):
@@ -160,8 +172,8 @@ class FCCDSupport(PVGroup):
 
         @AdjustedAcquireTime.setpoint.putter
         async def AdjustedAcquireTime(self, instance, value):
-            open_delay = read(self.parent.parent.shutter_prefix + 'ShutterOpenDelay_RBV').data[0]
-            close_delay = read(self.parent.parent.shutter_prefix + 'ShutterCloseDelay_RBV').data[0]
+            open_delay = (await self.parent.open_delay_pv.read()).data[0]
+            close_delay = (await self.parent.close_delay_pv.read()).data[0]
 
             if not open_delay + value + close_delay <= self.parent.AdjustedAcquirePeriod.readback.value:
                 await self.parent.AdjustedAcquirePeriod.setpoint.write(open_delay + value + close_delay)
@@ -175,8 +187,8 @@ class FCCDSupport(PVGroup):
         @AdjustedAcquirePeriod.setpoint.putter
         async def AdjustedAcquirePeriod(self, instance, value):
             readout_time = self.parent.ReadoutTime.value
-            open_delay = read(self.parent.parent.shutter_prefix + 'ShutterOpenDelay_RBV').data[0]
-            close_delay = read(self.parent.parent.shutter_prefix + 'ShutterCloseDelay_RBV').data[0]
+            open_delay = (await self.parent.open_delay_pv.read()).data[0]
+            close_delay = (await self.parent.close_delay_pv.read()).data[0]
 
             if not value - open_delay - close_delay >= self.parent.AdjustedAcquireTime.readback.value:
                 await self.parent.AdjustedAcquireTime.setpoint.write(value - open_delay - close_delay)
@@ -189,8 +201,9 @@ class FCCDSupport(PVGroup):
 
         @Initialize.scan(period=1)
         async def Initialize(self, instance, async_lib):
-            A_temp = read('ES7011:FastCCD:TemperatureCelsiusA').data[0]
-            B_temp = read('ES7011:FastCCD:TemperatureCelsiusB').data[0]
+            A_temp = (await self.A_temp_pv.read()).data[0]
+            B_temp = (await self.B_temp_pv.read()).data[0]
+
             # print('B Temp:', B_temp, type(B_temp))
             if self.State.value in ['Off', 'Unknown'] and not self._active_subprocess and (B_temp < 0) and (A_temp < 0):
                 await self.fccd_initialize(None, None)
@@ -210,13 +223,14 @@ class FCCDSupport(PVGroup):
                         error = self._active_subprocess.stderr.read().decode()
                         print(error)
                         await self.ErrorStatus.write(error)
+                        await self.ErrorStatus.write('')
                         await self.State.write('Off')
                     self._active_subprocess = None
                     self._subprocess_completion_state = None
 
         ReadoutTime = pvproperty(dtype=float, value=.080)
 
-        ErrorStatus = pvproperty(dtype=str, value="Unknown", read_only=True)
+        ErrorStatus = pvproperty(dtype=str, value="", read_only=True)
 
 
 def main():
