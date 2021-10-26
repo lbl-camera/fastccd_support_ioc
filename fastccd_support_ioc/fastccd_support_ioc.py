@@ -189,6 +189,14 @@ class FCCDSupport(PVGroup):
 
         @Initialize.scan(period=1)
         async def Initialize(self, instance, async_lib):
+            A_temp = read('ES7011:FastCCD:TemperatureCelsiusA').data[0]
+            B_temp = read('ES7011:FastCCD:TemperatureCelsiusB').data[0]
+            # print('B Temp:', B_temp, type(B_temp))
+            if self.State.value in ['Off', 'Unknown'] and not self._active_subprocess and (B_temp < 0) and (A_temp < 0):
+                await self.fccd_initialize(None, None)
+            elif self.State.value == 'Initialized' and not self._active_subprocess and ((B_temp > 2) or (A_temp > 2)):
+                await self.fccd_shutdown(None, None)
+
             if self._active_subprocess:
                 print(f'checking subprocess: {self._active_subprocess}')
                 return_code = self._active_subprocess.poll()
