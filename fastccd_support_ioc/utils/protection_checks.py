@@ -1,3 +1,5 @@
+import re
+import subprocess
 import sys
 import string
 import time
@@ -7,6 +9,14 @@ from fastccd_support_ioc.utils.cin_functions import WriteReg, ReadReg
 from fastccd_support_ioc.utils.cin_register_map import REG_COMMAND, REG_READ_ADDRESS, \
     REG_BIASANDCLOCKREGISTERADDRESS_REG, REG_BIASREGISTERDATAOUT_REG
 from caproto.sync.client import read
+
+
+def network_check():
+    out = subprocess.check_output(['ip', 'address'])
+    ips = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out.decode())
+    if '10.0.5.42' not in ips or '192.168.1.42' not in ips:
+        raise AssertionError('Network is not configured correctly. Try re-initializing it with "netctl restore".')
+    return True
 
 
 def temp_check():

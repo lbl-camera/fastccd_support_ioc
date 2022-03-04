@@ -15,10 +15,12 @@ import sys
 # Check voltages with +-.2 V ranges from getCameraPower.py
 
 # Power Cycle CIN to clear stale configurations
-from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power, temp_check
+from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power, temp_check, network_check
 
 print('argv:', sys.argv)
 test_frame_mode = sys.argv[1] == 'On'
+
+network_check()
 
 if not test_frame_mode:
     print('Operating in ARMED mode')
