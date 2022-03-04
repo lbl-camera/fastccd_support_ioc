@@ -205,7 +205,9 @@ class FCCDSupport(PVGroup):
             B_temp = (await self.B_temp_pv.read()).data[0]
 
             # print('B Temp:', B_temp, type(B_temp))
-            if self.State.value in ['Off', 'Unknown'] and not self._active_subprocess and (B_temp < 0) and (A_temp < 0):
+            if self.AutoStart.value == 'On' and self.State.value in ['Off',
+                                                                     'Unknown'] and not self._active_subprocess and (
+                B_temp < 0) and (A_temp < 0):
                 await self.fccd_initialize(None, None)
             elif self.State.value == 'Initialized' and not self._active_subprocess and ((B_temp > 2) or (A_temp > 2)):
                 await self.fccd_shutdown(None, None)
@@ -231,6 +233,7 @@ class FCCDSupport(PVGroup):
         ReadoutTime = pvproperty(dtype=float, value=.080)
 
         ErrorStatus = pvproperty(dtype=str, value="", read_only=True)
+        AutoStart = pvproperty(dtype=bool, value='On')
 
 
 def main():
