@@ -172,11 +172,12 @@ class FCCDSupport(PVGroup):
 
         @AdjustedAcquireTime.setpoint.putter
         async def AdjustedAcquireTime(self, instance, value):
+            readout_time = self.parent.ReadoutTime.value
             open_delay = (await self.parent.open_delay_pv.read()).data[0]
             close_delay = (await self.parent.close_delay_pv.read()).data[0]
 
-            if not open_delay + value + close_delay <= self.parent.AdjustedAcquirePeriod.readback.value:
-                await self.parent.AdjustedAcquirePeriod.setpoint.write(open_delay + value + close_delay)
+            if not open_delay + value + close_delay + readout_time <= self.parent.AdjustedAcquirePeriod.readback.value:
+                await self.parent.AdjustedAcquirePeriod.setpoint.write(open_delay + value + close_delay + readout_time)
 
             write(self.parent.parent.camera_prefix + 'AcquireTime', value + close_delay + open_delay)
             write(self.parent.parent.shutter_prefix + 'ShutterTime', value + open_delay)
@@ -190,8 +191,8 @@ class FCCDSupport(PVGroup):
             open_delay = (await self.parent.open_delay_pv.read()).data[0]
             close_delay = (await self.parent.close_delay_pv.read()).data[0]
 
-            if not value - open_delay - close_delay >= self.parent.AdjustedAcquireTime.readback.value:
-                await self.parent.AdjustedAcquireTime.setpoint.write(value - open_delay - close_delay)
+            if not value - open_delay - close_delay - readout_time >= self.parent.AdjustedAcquireTime.readback.value:
+                await self.parent.AdjustedAcquireTime.setpoint.write(value - open_delay - close_delay - readout_time)
 
             write(self.parent.parent.camera_prefix + 'AcquirePeriod', value)
             write(self.parent.parent.shutter_prefix + 'TriggerRate', 1. / value)
@@ -201,19 +202,22 @@ class FCCDSupport(PVGroup):
 
         @Initialize.scan(period=1)
         async def Initialize(self, instance, async_lib):
+            needs_shutdown = False
+
             A_temp = (await self.A_temp_pv.read()).data[0]
             B_temp = (await self.B_temp_pv.read()).data[0]
 
             # print('B Temp:', B_temp, type(B_temp))
-            if self.AutoStart.value == 'On' and self.State.value in ['Off',
-                                                                     'Unknown'] and not self._active_subprocess and (
-                B_temp < 0) and (A_temp < 0):
+            if self.AutoStart.value == 'On' \
+                and self.State.value in ['Off', 'Unknown'] \
+                and not self._active_subprocess \
+                and (B_temp < 0) and (A_temp < 0):
                 await self.fccd_initialize(None, None)
             elif self.State.value == 'Initialized' and not self._active_subprocess and ((B_temp > 2) or (A_temp > 2)):
-                await self.fccd_shutdown(None, None)
+                needs_shutdown = True
 
             if self._active_subprocess:
-                print(f'checking subprocess: {self._active_subprocess}')
+                print(f'checking subprocess: {" ".join(self._active_subprocess.args)}')
                 return_code = self._active_subprocess.poll()
                 if return_code is not None:
                     completion_state = self._subprocess_completion_state
@@ -226,14 +230,19 @@ class FCCDSupport(PVGroup):
                         print(error)
                         await self.ErrorStatus.write(error)
                         await self.ErrorStatus.write('')
-                        await self.State.write('Off')
+                        needs_shutdown = True
                     self._active_subprocess = None
                     self._subprocess_completion_state = None
 
-        ReadoutTime = pvproperty(dtype=float, value=.080)
+            if needs_shutdown:
+                self._active_subprocess = None  # force dumping any running subprocess
+                self._subprocess_completion_state = None
+                await self.fccd_shutdown(None, None)
+
+        ReadoutTime = pvproperty(dtype=float, value=.050)
 
         ErrorStatus = pvproperty(dtype=str, value="", read_only=True)
-        AutoStart = pvproperty(dtype=bool, value='On')
+        AutoStart = pvproperty(dtype=bool, value='Off')  # value='On')
 
 
 def main():
