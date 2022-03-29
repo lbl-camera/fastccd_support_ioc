@@ -4,6 +4,7 @@ import subprocess
 import cin_constants
 import cin_register_map
 import cin_functions
+import loadBiasConfigFile
 import time
 from caproto.sync.client import write
 import sys
@@ -139,7 +140,7 @@ temp_check()
 
 time.sleep(5)
 
-import setClocksBiasOn
+write('ES7011:FastCCD:cam1:BiasOn', 1)
 
 time.sleep(5)  # Wait to allow visual check
 
