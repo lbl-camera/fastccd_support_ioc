@@ -2,7 +2,6 @@ from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 
 from . import utils, pvproperty_with_rbv, wrap_autosave, FastAutosaveHelper
-from utils import setClocksBiasOff, setClocksBiasOn
 from utils.protection_checks import power_check_no_bias_clocks, power_check_with_bias_clocks
 from textwrap import dedent
 import sys
@@ -272,7 +271,7 @@ class FCCDSupport(PVGroup):
         async def _power_on_bias(self, instance, value):
             async with com_lock:
                 power_check_no_bias_clocks()
-                setClocksBiasOn()
+                utils.scripts.setClocksBiasOn()
                 await self.async_lib.library.sleep(1)
                 power_check_with_bias_clocks()
                 print(f"Powered On")
@@ -280,7 +279,7 @@ class FCCDSupport(PVGroup):
 
         async def _power_off_bias(self, instance, value):
             async with com_lock:
-                setClocksBiasOff()
+                utils.scripts.setClocksBiasOff()
                 print(f"Powered Off")
                 return "Off"
 
