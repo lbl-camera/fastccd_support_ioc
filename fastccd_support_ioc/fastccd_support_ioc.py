@@ -272,7 +272,8 @@ class FCCDSupport(PVGroup):
             async with com_lock:
                 power_check_no_bias_clocks()
                 utils.scripts.setClocksBiasOn()
-                await self.async_lib.library.sleep(1)
+                # wait longer than 3s - psu ioc scans every 3 seconds
+                await self.async_lib.library.sleep(4)
                 power_check_with_bias_clocks()
                 print(f"Powered On")
                 return "On"
