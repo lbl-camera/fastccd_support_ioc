@@ -2,6 +2,7 @@ from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 
 from . import utils, pvproperty_with_rbv, wrap_autosave, FastAutosaveHelper
+from utils.protection_checks import power_check_no_bias_clocks, power_check_with_bias_clocks
 from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
@@ -243,6 +244,54 @@ class FCCDSupport(PVGroup):
 
         ErrorStatus = pvproperty(dtype=str, value="", read_only=True)
         AutoStart = pvproperty(dtype=bool, value='Off')  # value='On')
+
+        BiasState = pvproperty(dtype=ChannelType.ENUM,
+                           enum_strings=["Unknown", "On", "Powering On...", "Powering Off...", "Off", ],
+                           value="Unknown")
+
+        @BiasState.startup
+        async def BiasState(self, instance, async_lib):
+            global com_lock
+            self.async_lib = async_lib
+            com_lock = async_lib.library.locks.Lock()
+
+        @BiasState.putter
+        async def BiasState(self, instance, value):
+            if value != instance.value:
+                print(f"setting state: {value}")
+
+                if value == "Powering On...":
+                    value = await self._power_on_bias(None, None)
+
+                elif value == "Powering Off...":
+                    value = await self._power_off_bias(None, None)
+
+            return value
+
+        async def _power_on_bias(self, instance, value):
+            async with com_lock:
+                power_check_no_bias_clocks()
+                utils.scripts.setClocksBiasOn()
+                # wait longer than 3s - psu ioc scans every 3 seconds
+                await self.async_lib.library.sleep(4)
+                power_check_with_bias_clocks()
+                print(f"Powered On")
+                return "On"
+
+        async def _power_off_bias(self, instance, value):
+            async with com_lock:
+                utils.scripts.setClocksBiasOff()
+                print(f"Powered Off")
+                return "Off"
+
+        async def power_on_bias(self, instance, value):
+            await self.BiasState.write('Powering On...')
+
+        async def power_off_bias(self, instance, value):
+            await self.BiasState.write('Powering Off...')
+
+        BiasOn = pvproperty(value=0, dtype=int, put=power_on_bias)
+        BiasOff = pvproperty(value=0, dtype=int, put=power_off_bias)
 
 
 def main():
