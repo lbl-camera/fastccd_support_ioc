@@ -4,6 +4,7 @@ import subprocess
 import cin_constants
 import cin_register_map
 import cin_functions
+import loadBiasConfigFile
 import time
 from caproto.sync.client import write
 import sys
@@ -15,10 +16,13 @@ import sys
 # Check voltages with +-.2 V ranges from getCameraPower.py
 
 # Power Cycle CIN to clear stale configurations
-from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power, temp_check
+from fastccd_support_ioc.utils.protection_checks import check_FOPS, check_camera_power, temp_check, network_check, \
+    power_check_no_bias_clocks, power_check_with_bias_clocks
 
 print('argv:', sys.argv)
 test_frame_mode = sys.argv[1] == 'On'
+
+network_check()
 
 if not test_frame_mode:
     print('Operating in ARMED mode')
@@ -26,8 +30,11 @@ if not test_frame_mode:
 else:
     print('Operating in test frame mode')
 
-cin_functions.CINPowerDown()
+import auto_power_down_script
+
 cin_functions.CINPowerUp()
+
+# TODO: Is this ok for test frame mode?
 
 import getCfgFPGAStatus
 
@@ -36,15 +43,19 @@ config_dir = '/home/rp/PycharmProjects/fastccd_support_ioc/fastccd_support_ioc/u
 
 # Configure Frame FPGA
 # jj-changed to lastest fw 05/02/17 In EuXFEL bin location
-cin_functions.loadFrmFirmware(cin_binary_dir + "FPGAConfig.bit")  # TODO: symlink to 302D
+cin_functions.loadFrmFirmware(cin_binary_dir + "FPGAConfig.bit")
 
 import getFrmFPGAStatus
 import setFClk125M
 # import setFClk200M
 import getFClkStatus
 
+time.sleep(3)
+
 # Load Camera Timing File for 125MHz System Clock
 cin_functions.loadCameraConfigFile(config_dir + "TimingConfig.txt")
+
+time.sleep(3)
 
 print("\nSet Trigger Mux to accept external triggers on FP Trigger Input 1 Only")
 import setTrigger0  # Maps to Front Panel Trigger Input 1
@@ -74,15 +85,20 @@ temp_check()
 # Power up Front Panel boards & FO Modules
 import setFPPowerOn
 
-time.sleep(0.2)  # Wait to allow visual check
+# Power on Camera
+# ps = subprocess.run(['/usr/local/epics/R7.0.1.1/base/bin/linux-x86_64/caput', 'ES7011:FastCCD:On', '1'], check=True)
+# if ps.returncode:
+#     raise RuntimeError("Could not turn on FastCCD PSU")
 
-import set_FOPS_On
+write('ES7011:FastCCD:On', 1)  # Power on all PSUs
 
-time.sleep(.2)
+time.sleep(3)  # Wait to allow visual check
 
-if not check_FOPS():
-    import auto_power_down_script
-    raise ValueError('The FOPS values were outside acceptable range. The camera has been powered down.')
+power_check_no_bias_clocks()
+
+# if not check_FOPS():
+#     import auto_power_down_script
+#     raise ValueError('The FOPS values were outside acceptable range. The camera has been powered down.')
 
 ## *********** DO NOT SEND PORT CONNECT ********
 #  Send UDP packet to configure Stream Port
@@ -95,24 +111,26 @@ if not check_FOPS():
 
 # input("\n(Press Enter Key to Power Up Camera)")
 
-# Power on Camera
-import setMainPS1_On
 
-time.sleep(2)  # Wait to allow visual check
-
-if not check_camera_power():
-    import auto_power_down_script
-    raise ValueError('The camera power values were outside an acceptable range. The camera has been powered down.')
+# if not check_camera_power():
+#     import auto_power_down_script
+#
+#     raise ValueError('The camera power values were outside an acceptable range. The camera has been powered down.')
 
 # input("\n(Press Enter Key to Continue)")
 
 cin_functions.loadCameraConfigFile(config_dir + "FCRICConfig.txt")
 
-time.sleep(0.2)  # Wait to allow visual check
+time.sleep(5)  # Wait to allow visual check
 
 from fastccd_support_ioc.utils.sendBiasConfig import sendBiasConfig
 
-if not sendBiasConfig(config_dir + "BiasConfig.txt"):
+for i in range(3):
+    if sendBiasConfig(config_dir + "BiasConfig.txt"):
+        break
+    else:
+        print(f'Attempt {i + 1} of 3 to send/confirm bias config failed')
+else:
     import auto_power_down_script
 
     raise ValueError(
@@ -120,7 +138,13 @@ if not sendBiasConfig(config_dir + "BiasConfig.txt"):
 
 temp_check()
 
-import setClocksBiasOn
+time.sleep(5)
+
+write('ES7011:FastCCD:cam1:BiasOn', 1)
+
+time.sleep(5)  # Wait to allow visual check
+
+power_check_with_bias_clocks()
 
 print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
 
@@ -130,6 +154,9 @@ try:
     write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
 except Exception as e:
     raise RuntimeError("Setting Acquire / OverscanCols failed") from e
+
+# TODO: Ask John why it doesn't work unless I send the FCRICConfig again?
+cin_functions.loadCameraConfigFile(config_dir + "FCRICConfig.txt")
 
 if __name__ == "__main__":
     pass

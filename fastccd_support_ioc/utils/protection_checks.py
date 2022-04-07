@@ -1,3 +1,5 @@
+import re
+import subprocess
 import sys
 import string
 import time
@@ -9,9 +11,77 @@ from fastccd_support_ioc.utils.cin_register_map import REG_COMMAND, REG_READ_ADD
 from caproto.sync.client import read
 
 
+def read_scalar(pv):
+    return read(pv).data[0]
+
+
+def power_check_no_bias_clocks():
+    try:
+        # Voltage checks
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Voltage'), 15)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Voltage'), 15)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out3:Voltage'), 30)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out4:Voltage'), 30)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out1:Voltage'), 5)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out2:Voltage'), 4)
+    except AssertionError:
+        raise AssertionError('A PSU voltage is outside acceptable range!')
+
+    try:
+        # Current checks
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Current'), .125, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Current'), .125, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out3:Current'), .03, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out4:Current'), .03, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out1:Current'), 3, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out2:Current'), 2, percent=.2)
+    except AssertionError:
+        raise AssertionError('A PSU current is outside acceptable range!')
+
+    return True
+
+
+def power_check_with_bias_clocks():
+    try:
+        # Voltage checks
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Voltage'), 15)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Voltage'), 15)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out3:Voltage'), 30)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out4:Voltage'), 30)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out1:Voltage'), 5)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out2:Voltage'), 4)
+
+    except AssertionError:
+        raise AssertionError('A PSU voltage is outside acceptable range!')
+
+    try:
+        # Current checks
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Current'), .19, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Current'), .19, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out3:Current'), .05,
+                             percent=.6)  # NOTE: this value is increased when bias/clocks on
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out4:Current'), .3,
+                             percent=.2)  # NOTE: this value is increased when bias/clocks on
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out1:Current'), 3, percent=.35)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out2:Current'), 2, percent=.2)
+
+    except AssertionError:
+        raise AssertionError('A PSU current is outside acceptable range!')
+
+    return True
+
+
+def network_check():
+    out = subprocess.check_output(['ip', 'address'])
+    ips = re.findall("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out.decode())
+    if '10.0.5.42' not in ips or '192.168.1.42' not in ips:
+        raise AssertionError('Network is not configured correctly. Try re-initializing it with "netctl restore".')
+    return True
+
+
 def temp_check():
-    if read('ES7011:FastCCD:TemperatureCelsiusA').data[0] > 0. or read('ES7011:FastCCD:TemperatureCelsiusB').data[
-        0] > 0.:
+    if read_scalar('ES7011:FastCCD:TemperatureCelsiusA') > 0. or \
+        read_scalar('ES7011:FastCCD:TemperatureCelsiusB') > 0.:
         raise AssertionError('Camera is not cold enough to power on completely (< 0 C)')
 
 
