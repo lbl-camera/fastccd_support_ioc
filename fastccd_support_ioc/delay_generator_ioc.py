@@ -1,4 +1,5 @@
 import subprocess
+from contextlib import nullcontext
 from textwrap import dedent
 import sys
 from caproto.server import PVGroup, conversion, pvproperty, SubGroup, ioc_arg_parser, run
@@ -25,7 +26,7 @@ async def ibterm_read(command, caster=None):
 
     for i in range(100):
         try:
-            async with ibterm_lock:
+            async with ibterm_lock or nullcontext:
                 stdout = subprocess.check_output(command, shell=True)
             if caster:
                 value_string = stdout.decode().split("\n")[2].strip("ibterm>").split(",")[-1]
@@ -48,14 +49,14 @@ async def ibterm_write(command, value, caster=None, confirm=True):
     if not confirm:
         return
     for i in range(100):
-        if value == await ibterm_read(f'{command}', caster or type(value)):
+        if round(value, 2) == round(await ibterm_read(f'{command}', caster or type(value)), 2):
             break
         await ibterm_read(f'{command},{value}', caster)
     else:
         raise ConnectionError('Failed to cast value 100 times.')
 
 
-INITIAL_TRIGGER_RATE = 5
+INITIAL_TRIGGER_RATE = 5.
 SHUTTER_OUTPUT_AMPLITUDE = 3.3
 
 
@@ -108,8 +109,8 @@ class DelayGenerator(PVGroup):
         logger.debug(f'setting triggering: {on}')
         if on == 'TRIGGER':
             await ibterm_write('OM 4', 0)
+            await ibterm_write('OO 4', 0.)
             await ibterm_write('OA 4', SHUTTER_OUTPUT_AMPLITUDE)
-            await ibterm_write('OO 4', 0)
         elif on == 'OPEN':
             await ibterm_write('OM 4', 3)
             await ibterm_write('OA 4', .1)
@@ -117,7 +118,7 @@ class DelayGenerator(PVGroup):
         elif on == 'CLOSED':
             await ibterm_write('OM 4', 3)
             await ibterm_write('OA 4', .1)
-            await ibterm_write('OO 4', 0)
+            await ibterm_write('OO 4', 0.)
         else:
             msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
             #raise ValueError(msg)
