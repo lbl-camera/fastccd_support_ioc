@@ -159,7 +159,7 @@ class FCCDSupport(PVGroup):
             # self._capture_goal = read(self.hdf5_prefix + 'NumCapture').data
             # write(self.shutter_prefix + 'TriggerEnabled', [int(value)])
             # if value == 1:
-            write(self.parent.hdf5_prefix + 'Capture', [value])
+
             # print(f'comparing: {value} {instance.value}')
 
             # toggle Acquire pv; this closes the current file and is necessary to inform bluesky that the HDF plugin is
@@ -167,6 +167,7 @@ class FCCDSupport(PVGroup):
             if value != instance.value:
                 write(self.parent.camera_prefix + 'Acquire', [0])
                 await self.async_lib.library.sleep(.1)
+                write(self.parent.hdf5_prefix + 'Capture', [value])
                 write(self.parent.camera_prefix + 'Acquire', [1])
                 await self.async_lib.library.sleep(.1)
             return value
