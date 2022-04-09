@@ -3,13 +3,23 @@ from caproto.server import PVGroup, get_pv_pair_wrapper, conversion, pvproperty,
 from lakeshore import Model336
 
 import sys
+import contextlib
 from textwrap import dedent
 import logging
 from . import pvproperty_with_rbv
 logger = logging.getLogger('caproto')
 
+com_lock = None  # NOTE: the lakeshore package claims to be threadsafe, but this doesn't hurt
 
 lakeshore336 = Model336(ip_address='192.168.10.3') #TODO catch time out and try to reconnect
+
+async def query(cmd:str):
+    async with com_lock or contextlib.suppress():
+        return lakeshore336.query(cmd)
+
+async def command(cmd:str):
+    async with com_lock or contextlib.suppress():
+        lakeshore336.command(cmd)
 
 class LakeshoreModel336(PVGroup):
     """
@@ -34,74 +44,83 @@ class LakeshoreModel336(PVGroup):
                                                 "all control outputs when exceeded. A temperature limit of "
                                                 "zero turns the Temperature limit feature off for the given "
                                                 "sensor input.", precision=2)
-    TemperatureSetPoint = pvproperty_with_rbv(dtype=float, doc="Temperature set point", value=-20.0, precision=2)
+
+    TemperatureSetPoint = pvproperty_with_rbv(dtype=float, doc="Temperature set point", value=float(lakeshore336.query('SETP? 1')), precision=2)
 
     @TemperatureCelsiusA.getter
     async def TemperatureCelsiusA(obj, instance):
-        return float(lakeshore336.query('CRDG?'))
+        return float(await query('CRDG?'))
 
     @TemperatureCelsiusA.scan(period=1)
     async def TemperatureCelsiusA(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('CRDG?')))
+        await instance.write(float(await query('CRDG?')))
 
     @TemperatureKelvinA.getter
     async def TemperatureKelvinA(obj, instance):
-        return float(lakeshore336.query('KRDG?'))
+        return float(await query('KRDG?'))
 
     @TemperatureKelvinA.scan(period=1)
     async def TemperatureKelvinA(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('KRDG?')))
+        await instance.write(float(await query('KRDG?')))
 
     @TemperatureLimitA.readback.getter
     async def TemperatureLimitA(obj, instance):
-        return float(lakeshore336.query('TLIMIT? A'))
+        return float(await query('TLIMIT? A'))
 
     @TemperatureLimitA.setpoint.putter
     async def TemperatureLimitA(obj, instance, value):
-        lakeshore336.query(f'TLIMIT A, {value}')
+        await command(f'TLIMIT A, {value}')
 
     @TemperatureCelsiusB.getter
     async def TemperatureCelsiusB(obj, instance):
-        return float(lakeshore336.query('CRDG? B'))
+        return float(await query('CRDG? B'))
 
     @TemperatureCelsiusB.scan(period=1)
     async def TemperatureCelsiusB(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('CRDG? B')))
+        await instance.write(float(await query('CRDG? B')))
 
     @TemperatureKelvinB.getter
     async def TemperatureKelvinB(obj, instance):
-        return float(lakeshore336.query('KRDG? B'))
+        return float(await query('KRDG? B'))
 
     @TemperatureKelvinB.scan(period=1)
     async def TemperatureKelvinB(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('KRDG? B')))
+        await instance.write(float(await query('KRDG? B')))
 
     @TemperatureLimitB.readback.getter
     async def TemperatureLimitB(obj, instance):
-        return float(lakeshore336.query('TLIMIT? B'))
+        return float(await query('TLIMIT? B'))
 
     @TemperatureLimitB.setpoint.putter
     async def TemperatureLimitB(obj, instance, value):
-        lakeshore336.query(f'TLIMIT B, {value}')
+        await command(f'TLIMIT B, {value}')
 
     @HeaterOutput.getter
     async def HeaterOutput(obj, instance):
-        return float(lakeshore336.query('HTR? 1'))
+        return float(await query('HTR? 1'))
 
     @HeaterOutput.scan(period=1)
     async def HeaterOutput(obj, instance, async_lib):
-        await instance.write(float(lakeshore336.query('HTR? 1')))
+        await instance.write(float(await query('HTR? 1')))
+        await obj.TemperatureSetPoint.readback.write(float(await query('SETP? 1')))  # NOTE: this is intentially in the wrong place since there's no apparent way to attribute a scan to a pv pair's readback
 
     @TemperatureSetPoint.readback.getter
     async def TemperatureSetPoint(obj, instance):
-        return float(lakeshore336.query('SETP? 1'))
+        return float(await query('SETP? 1'))
 
     @TemperatureSetPoint.setpoint.putter
     async def TemperatureSetPoint(obj, instance, value):
-        lakeshore336.query(f'SETP 1, {value}')
+        await command(f'SETP 1, {value}')
 
+    @HeaterOutput.startup  # Which pv is used here is irrelevant; its just to capture async_lib
+    async def HeaterOutput(self, instance, async_lib):
+        global com_lock
+        self.async_lib = async_lib
+        com_lock = async_lib.library.locks.Lock()
 
-
+    def __init__(self, *args, **kwargs):
+        self.async_lib = None
+        super(LakeshoreModel336, self).__init__(*args, **kwargs)
 
 
 def main():
