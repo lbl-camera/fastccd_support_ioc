@@ -2,7 +2,7 @@ from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 
 from . import utils, pvproperty_with_rbv, wrap_autosave, FastAutosaveHelper
-from utils.protection_checks import power_check_no_bias_clocks, power_check_with_bias_clocks
+from .utils.protection_checks import power_check_no_bias_clocks, power_check_with_bias_clocks
 from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
