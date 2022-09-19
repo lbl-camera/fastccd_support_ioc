@@ -49,7 +49,7 @@ cin_functions.loadCameraConfigFile(config_dir + "TimingConfig.txt")
 print("\nSet Trigger Mux to accept external triggers on FP Trigger Input 1 Only")
 import setTrigger0  # Maps to Front Panel Trigger Input 1
 
-# import setTriggerSW
+import setTriggerOR
 
 # Set Exposure Time to 1ms
 cin_functions.WriteReg("8206", "0000", 1)  # MS Byte
@@ -112,7 +112,12 @@ time.sleep(0.2)  # Wait to allow visual check
 
 from fastccd_support_ioc.utils.sendBiasConfig import sendBiasConfig
 
-if not sendBiasConfig(config_dir + "BiasConfig.txt"):
+for i in range(10):
+    if sendBiasConfig(config_dir + "BiasConfig.txt"):
+        break
+    else:
+        print(f'Attempt {i + 1} of 10 to send/confirm bias config failed')
+else:
     import auto_power_down_script
 
     raise ValueError(
@@ -128,6 +133,7 @@ time.sleep(10)
 try:
     write('ES7011:FastCCD:cam1:Acquire', 1)  # always necessary after restart
     write('ES7011:FastCCD:cam1:OverscanCols', 0)  # maybe only necessary in test frame mode
+    write('ES7011:FastCCD:cam1:ImageMode', 2)  # assert continuous acquisition
 except Exception as e:
     raise RuntimeError("Setting Acquire / OverscanCols failed") from e
 
