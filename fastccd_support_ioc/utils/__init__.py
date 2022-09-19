@@ -15,7 +15,7 @@ def execfile(filepath, globals=None, locals=None):
     # with open(filepath, 'rb') as file:
     #     exec(compile(file.read(), filepath, 'exec'), globals, locals)
 
-    subprocess.Popen(["python", filepath])
+    subprocess.Popen(["/home/rp/PycharmProjects/alsdac/venv/bin/python", filepath])
 
 
 def script_path(script_name):
@@ -27,7 +27,7 @@ class scripts(object):
 
 
 def _run_script(path, *args):
-    return subprocess.Popen(['python', path, *args], stderr=subprocess.PIPE)
+    return subprocess.Popen([sys.executable, path, *args], stderr=subprocess.PIPE)
 
 
 scripts = scripts()
