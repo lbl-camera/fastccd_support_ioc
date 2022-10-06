@@ -127,7 +127,7 @@ temp_check()
 
 import setClocksBiasOn
 
-print(subprocess.run(['systemctl', 'restart', 'epics.service'], capture_output=True, text=True, check=True))
+print(subprocess.run(['systemctl', 'restart', 'fastccd.service'], capture_output=True, text=True, check=True))
 
 time.sleep(10)
 try:
