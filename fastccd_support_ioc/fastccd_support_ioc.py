@@ -206,8 +206,12 @@ class FCCDSupport(PVGroup):
         async def Initialize(self, instance, async_lib):
             needs_shutdown = False
 
-            A_temp = (await self.A_temp_pv.read()).data[0]
-            B_temp = (await self.B_temp_pv.read()).data[0]
+            if self.A_temp_pv and self.B_temp_pv:
+                A_temp = (await self.A_temp_pv.read()).data[0]
+                B_temp = (await self.B_temp_pv.read()).data[0]
+            else:
+                A_temp = 999
+                B_temp = 999
 
             # print('B Temp:', B_temp, type(B_temp))
             if self.AutoStart.value == 'On' \
