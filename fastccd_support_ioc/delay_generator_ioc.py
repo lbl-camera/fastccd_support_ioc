@@ -1,4 +1,5 @@
 import subprocess
+from contextlib import nullcontext
 from textwrap import dedent
 import sys
 from caproto.server import PVGroup, conversion, pvproperty, SubGroup, ioc_arg_parser, run
@@ -13,16 +14,20 @@ logger = logging.getLogger('caproto')
 # TODO: decide on PV naming convention
 # TODO: add docs to PVs
 
-shutter_states = {'TRIGGER':0, 'OPEN':1, 'CLOSED':2}
+shutter_states = {'TRIGGER': 0, 'OPEN': 1, 'CLOSED': 2}
+
+ibterm_lock = None
 
 
-def ibterm(command, caster=None):
+async def ibterm_read(command, caster=None):
     command = f'/bin/bash -c "ibterm -d 15 <<< \\\"{command}\\\""'
     logger.debug(f'exec: {command}')
     print(f'exec: {command}')
+
     for i in range(100):
         try:
-            stdout = subprocess.check_output(command, shell=True)
+            async with ibterm_lock or nullcontext:
+                stdout = subprocess.check_output(command, shell=True)
             if caster:
                 value_string = stdout.decode().split("\n")[2].strip("ibterm>").split(",")[-1]
                 logger.debug(f'casting value: {value_string}')
@@ -33,10 +38,25 @@ def ibterm(command, caster=None):
         except ValueError:
             print(f'Failed to cast value using {caster}, retrying attempt {i}: {value_string}')
     else:
-        raise ConnectionError('Failed to cast value 3 times.')
+        raise ConnectionError('Failed to cast value 100 times.')
 
 
-INITIAL_TRIGGER_RATE = 5
+ibterm = ibterm_read
+
+
+async def ibterm_write(command, value, caster=None, confirm=True):
+    await ibterm_read(f'{command},{value}', caster)
+    if not confirm:
+        return
+    for i in range(100):
+        if round(value, 2) == round(await ibterm_read(f'{command}', caster or type(value)), 2):
+            break
+        await ibterm_read(f'{command},{value}', caster)
+    else:
+        raise ConnectionError('Failed to cast value 100 times.')
+
+
+INITIAL_TRIGGER_RATE = 5.
 SHUTTER_OUTPUT_AMPLITUDE = 3.3
 
 
@@ -56,23 +76,23 @@ class DelayGenerator(PVGroup):
 
     @TriggerRate.setpoint.putter
     async def TriggerRate(obj, instance, value):
-        ibterm(f"tr 0,{value}")
+        await ibterm_write(f"tr 0", value)
 
     @TriggerRate.readback.getter
     async def TriggerRate(obj, instance):
-        return ibterm(f"tr 0", float)
+        return ibterm_read(f"tr 0", float)
 
     @TriggerEnabled.setpoint.putter
     async def TriggerEnabled(obj, instance, on):
         logger.debug(f'setting triggering: {on}')
         if on=='On':
-            ibterm(f"tm 0")
+            await ibterm(f"tm 0")
         else:
-            ibterm(f"tm 2")
+            await ibterm(f"tm 2")
 
     @TriggerEnabled.readback.getter
     async def TriggerEnabled(obj, instance):
-        return ibterm(f"tm", bool)
+        return await ibterm_read(f"tm", bool)
 
     #@ShutterEnabled.setpoint.putter
     #async def ShutterEnabled(obj, instance, on):
@@ -88,11 +108,17 @@ class DelayGenerator(PVGroup):
         print(f"Setting ShutterEnabled state: {on}")
         logger.debug(f'setting triggering: {on}')
         if on == 'TRIGGER':
-            ibterm(f"OM 4,0; OA 4,{SHUTTER_OUTPUT_AMPLITUDE}; OO 4,0")
+            await ibterm_write('OM 4', 0)
+            await ibterm_write('OO 4', 0.)
+            await ibterm_write('OA 4', SHUTTER_OUTPUT_AMPLITUDE)
         elif on == 'OPEN':
-            ibterm(f"OM 4,3; OA 4,.1; OO 4,{SHUTTER_OUTPUT_AMPLITUDE}")
+            await ibterm_write('OM 4', 3)
+            await ibterm_write('OA 4', .1)
+            await ibterm_write('OO 4', SHUTTER_OUTPUT_AMPLITUDE)
         elif on == 'CLOSED':
-            ibterm(f"OM 4,3; OA 4,.1; OO 4,0")
+            await ibterm_write('OM 4', 3)
+            await ibterm_write('OA 4', .1)
+            await ibterm_write('OO 4', 0.)
         else:
             msg = "Shutter state {on.upper()} not valid; use TRIGGER, OPEN, or CLOSED"
             #raise ValueError(msg)
@@ -102,21 +128,21 @@ class DelayGenerator(PVGroup):
 
     @ShutterEnabled.readback.getter
     async def ShutterEnabled(obj, instance):
-        mode = ibterm(f"OM 4", float)
-        amplitude = ibterm(f"OA 4", float)
-        offset = ibterm(f"OO 4", float)
+        mode = await ibterm_read(f"OM 4", float)
+        amplitude = await ibterm_read(f"OA 4", float)
+        offset = await ibterm_read(f"OO 4", float)
 
         print(mode, amplitude, offset)
 
         if mode == 0:
-            return 0 # 'TRIGGER'
+            return 0  # 'TRIGGER'
         elif mode == 3:
             if offset == 0:
-                return 2 # 'CLOSED'
+                return 2  # 'CLOSED'
             else:
-                return 1 # 'OPEN'
+                return 1  # 'OPEN'
         else:
-            raise ValueError("Invalid shutter state has been set.") 
+            raise ValueError("Invalid shutter state has been set.")
 
     #@ShutterEnabled.readback.getter
     #async def ShutterEnabled(obj, instance):
@@ -134,11 +160,11 @@ class DelayGenerator(PVGroup):
     async def ShutterTime(obj, instance, shutter_time):
         if shutter_time < obj.parent.ShutterOpenDelay.readback.value + obj.parent.ShutterCloseDelay.readback.value:
             raise ValueError("Shutter time cannot be less than the time it takes to open AND close the shutter (less than 0 exposure time).")
-        ibterm(f"dt 3,1,{shutter_time}")
+        await ibterm(f"dt 3,1,{shutter_time}")
 
     @ShutterTime.readback.getter
     async def ShutterTime(obj, instance):
-        return ibterm(f"dt 3", float) - obj.ShutterCloseDelay.readback.value
+        return await ibterm(f"dt 3", float) - obj.ShutterCloseDelay.readback.value
 
     State = pvproperty(dtype=ChannelType.ENUM, enum_strings=["Unknown", "Initialized", "Uninitialized", ])
 
@@ -158,25 +184,26 @@ class DelayGenerator(PVGroup):
         # 6 - C (?) Camera Trigger
 
         # clear and setup various parameters
-        ibterm(
-            f"CL; DT 2,1,0; DT 3,2,140E-3; TZ 1,1; TZ 4,1; OM 4,0; OM 1,3; OA 1,{SHUTTER_OUTPUT_AMPLITUDE}; OO 1,0; TR 0,{INITIAL_TRIGGER_RATE}; TM 0")
-        # Clear
-        # Set 2 to trigger 1ms off of 1
-        # Set 3 to trigger 140ms off of 2
-        # Impedance
-        # Impedance
-        # Set 4 to TTL
-        # Set 1 to Variable
-        # Voltage
-        # Offset
-        # Set trigger rate
+        await ibterm('CL')  # Clear
+        await ibterm('DT 2,1,0')  # Set 2 to trigger 1ms off of 1
+        await ibterm('DT 3,2,140E-3')  # Set 3 to trigger 140ms off of 2
+        await ibterm('TZ 1,1')  # Impedance
+        await ibterm('TZ 4,1')  # Impedance
+        await ibterm('OM 4,0')  # Set 4 to TTL
+        await ibterm('OM 1,3')  # Set 1 to Variable
+        await ibterm_write('OA 1', SHUTTER_OUTPUT_AMPLITUDE)  # Voltage
+        await ibterm('OO 1,0')  # Offset
+        await ibterm_write('TR 0', INITIAL_TRIGGER_RATE)  # Set trigger rate
+        await ibterm('TM 0')
 
     async def _reset(self, instance, value):
         # only clear device
-        ibterm(f"CL")
+        await ibterm(f"CL")
 
     @State.startup
     async def State(self, instance, async_lib):
+        global ibterm_lock
+        ibterm_lock = async_lib.library.locks.Lock()
         await self.State.write('Initialized')
 
     @State.getter

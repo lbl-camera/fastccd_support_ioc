@@ -32,9 +32,9 @@ def _run_script(path, *args):
 
 scripts = scripts()
 
-print((glob.glob(os.path.join(__path__[0], '*.py'))))
+# print((glob.glob(os.path.join(__path__[0], '*.py'))))
 for path in glob.iglob(os.path.join(__path__[0], '*.py')):
-    print(path)
+    # print(path)
     script_name = os.path.splitext(os.path.basename(path))[0]
     # setattr(scripts, script_name,
     #         partial(exec,
