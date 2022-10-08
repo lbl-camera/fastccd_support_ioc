@@ -1,17 +1,28 @@
 from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 
-from . import utils, pvproperty_with_rbv, wrap_autosave, FastAutosaveHelper
-from .utils.protection_checks import power_check_no_bias_clocks, power_check_with_bias_clocks
 from textwrap import dedent
 import sys
 from caproto.server import ioc_arg_parser, run
 from caproto.sync.client import write, read
-from caproto.asyncio.client import Context
+from caproto.asyncio.client import Context, PV
+from pip._internal import main
+main(['install', 'loguru'])
+from loguru import logger
 
+from . import utils, pvproperty_with_rbv, wrap_autosave, FastAutosaveHelper
+from .utils.protection_checks import power_check_no_bias_clocks, power_check_with_bias_clocks
+from .utils.cin_functions import ReadReg
+from .cin.shutter import set_shutter_time_s
 
 DEFAULT_ACQUIRETIME = 1
 DEFAULT_ACQUIREPERIOD = 1.1
+
+async def read(pv):
+    if isinstance(pv, PV):
+        return (await pv.read()).data[0]
+    else:
+        return (await pv.read(pv.pvspec.dtype))[1][0]
 
 
 class FCCDSupport(PVGroup):
@@ -27,28 +38,56 @@ class FCCDSupport(PVGroup):
         self.hdf5_prefix = hdf5_prefix
         super(FCCDSupport, self).__init__(*args, **kwargs)
 
+    @SubGroup(prefix='shutter:')
+    class Shutter(PVGroup):
+        shutter_enabled = pvproperty(name='shutter_enabled', dtype=ChannelType.ENUM, enum_strings=['TRIGGER', 'OPEN', 'CLOSED'], )
+
+        @shutter_enabled.putter
+        async def shutter_enabled(self, instance, value):
+            value = value.upper()
+            logger.debug(f'setting shutter_enabled state: {value}')
+            if value == 'TRIGGER':
+                await self.parent.Cam.adjusted_acquire_time.write(self.parent.Cam.adjusted_acquire_time.value)  # re-write current value to update shutter
+            elif value == 'CLOSED':
+                await self.parent.Cam.adjusted_acquire_time.write(self.parent.Cam.adjusted_acquire_time.value)  # re-write current value to update shutter
+            elif value == 'OPEN':
+                raise NotImplementedError()
+
     @SubGroup(prefix='cam1:')
     class Cam(PVGroup):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self._capture_goal = 0
+            self.capture_pv = None
+            self.acquire_pv = None
+            self.acquire_rbv_pv = None
             self._active_subprocess = None
             self._subprocess_completion_state = None
-            self.num_captured_rbv_pv = None
-            self.num_capture_pv = None
-            self.open_delay_pv = None
-            self.close_delay_pv = None
             self.A_temp_pv = None
             self.B_temp_pv = None
+
+        startup = pvproperty(name='startup', dtype=ChannelType.INT)
+
+        @startup.startup
+        async def startup(self, instance, async_lib):
+            self._context = Context()
+            self.acquire_rbv_pv, = await self._context.get_pvs(self.prefix + 'Acquire_RBV')
+            self.acquire_pv, = await self._context.get_pvs(self.prefix + 'Acquire')
+            self.capture_pv, = await self._context.get_pvs(self.parent.prefix + 'HDF1:Capture_RBV')
+            self.mode_pv, = await self._context.get_pvs(self.prefix + 'ImageMode')
+            self.acquire_rbv_sub = self.acquire_rbv_pv.subscribe(data_type=ChannelType.INT)
+            self.acquire_rbv_sub.add_callback(self.acquire_finished)
+            self.A_temp_pv, = await self._context.get_pvs(self.parent.prefix + 'TemperatureCelsiusA')
+            self.B_temp_pv, = await self._context.get_pvs(self.parent.prefix + 'TemperatureCelsiusB')
+
 
         async def fccd_shutdown(self, instance, value):
             # Note: all the fccd scripts are injected into the utils module; you can call them like so:
 
-            print("shutting down")
+            logger.info("shutting down")
             await self.State.write("Shutting Down...")
 
         async def fccd_initialize(self, instance, value):
-            print("initializing")
+            logger.info("initializing")
             await self.State.write("Initializing...")
 
         async def _fccd_initialize(self, instance, value):
@@ -68,46 +107,12 @@ class FCCDSupport(PVGroup):
                            enum_strings=["Unknown", "Initialized", "Initializing...", "Shutting Down...", "Off", ],
                            value="Unknown")
 
-        @State.startup
-        async def State(self, instance, async_lib):
-
-            self._context = Context()
-
-            if self.num_captured_rbv_pv:
-                await self.num_captured_rbv_pv.unsubscribe_all()
-            else:
-                self.num_captured_rbv_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCaptured_RBV')
-                self.num_captured_rbv_sub = self.num_captured_rbv_pv.subscribe(data_type=ChannelType.INT)
-            self.num_captured_rbv_sub.add_callback(self.check_finished)
-
-            if self.num_capture_pv:
-                await self.num_capture_pv.unsubscribe_all()
-            else:
-                self.num_capture_pv, = await self._context.get_pvs(self.parent.hdf5_prefix + 'NumCapture')
-                self.num_capture_sub = self.num_capture_pv.subscribe(data_type=ChannelType.INT)
-            self.num_capture_sub.add_callback(self.set_goal)
-
-        async def check_finished(self, pv, response):
-            # todo: make sure this is a falling edge
-            print('num_captured:', response.data[0])
-
-            if response.data[0] == self._capture_goal:
-                print('finished!')
-                await self.AdjustedAcquire.write(0)
-
-        async def set_goal(self, pv, response):
-            print('num_capture (goal):', response.data[0])
-            self._capture_goal = response.data[0]
-
         @State.getter
         async def State(self, instance):
             return instance.value
 
         @State.putter
         async def State(self, instance, value):
-            # if value != instance.value:
-            #     print("setting state:", value)
-
             if value == "Initializing...":
                 await self._fccd_initialize(None, None)
 
@@ -127,79 +132,85 @@ class FCCDSupport(PVGroup):
         Initialize = pvproperty(value=0, dtype=int, put=fccd_initialize)
         Shutdown = pvproperty(value=0, dtype=int, put=fccd_shutdown)
 
-        AdjustedAcquireTime = pvproperty_with_rbv(value=DEFAULT_ACQUIRETIME, dtype=float,
+        adjusted_acquire_time = pvproperty(value=DEFAULT_ACQUIRETIME, dtype=float,
                                                   precision=3, units='s')
-        AdjustedAcquirePeriod = pvproperty_with_rbv(value=DEFAULT_ACQUIREPERIOD, dtype=float,
+        adjusted_acquire_period = pvproperty(value=DEFAULT_ACQUIREPERIOD, dtype=float,
                                                     precision=3, units='s')
 
-        AdjustedAcquire = pvproperty(value=0, dtype=int)
+        adjusted_acquire = pvproperty_with_rbv(value=0, dtype=int)
+        adjusted_num_images = pvproperty(value=0, dtype=int)
 
         TestFrameMode = pvproperty(value=False, dtype=bool)
 
-        @AdjustedAcquire.startup
-        async def AdjustedAcquire(self, instance, async_lib):
-            # write to Acquire to start the camera up in tv mode
-            write(self.parent.camera_prefix + 'Acquire', [1])
-            self.async_lib = async_lib
+        async def acquire_finished(self, pv, response):
+            if response.data[0] == 0:
+                await self.adjusted_acquire.readback.write(0)
+                await self.adjusted_acquire.setpoint.write(0)
 
-            self.open_delay_pv, self.close_delay_pv = await self._context.get_pvs(
-                self.parent.shutter_prefix + 'ShutterOpenDelay_RBV',
-                self.parent.shutter_prefix + 'ShutterCloseDelay_RBV')
+        @adjusted_acquire.setpoint.putter
+        async def adjusted_acquire(self, instance, value):
+            await self.parent.acquire_pv.write(0, wait=False)
+            if value:
+                logger.debug('switching to acquire mode')
+                await self.parent.mode_pv.write(1)
+            await self.parent.acquire_pv.write(value, wait=False)
 
-            self.A_temp_pv, self.B_temp_pv = await self._context.get_pvs(
-                'ES7011:FastCCD:TemperatureCelsiusA',
-                'ES7011:FastCCD:TemperatureCelsiusB')
+        @adjusted_acquire.readback.getter
+        async def adjusted_acquire(self, instance):
+            return await read(self.parent.acquire_rbv_pv)
 
-        @AdjustedAcquire.putter
-        async def AdjustedAcquire(self, instance, value):
-            # Wait one pulse width; this assures that the first frame is always a full frame,
-            # and that the dark frame is always a full dark frame
-            await self.async_lib.library.sleep(self.AdjustedAcquirePeriod.readback.value)
+        # @adjusted_acquire.readback.scan(period=2)
+        # async def adjusted_acquire(self, instance, async_lib):
+        @Shutdown.scan(period=2)
+        async def Shutdown(self, instance, async_lib):  # TODO: find out how to associate this with adjusted_acquire.readback
+            # if not acquiring or capturing
+            if self.capture_pv and self.acquire_rbv_pv:
+                capture = await read(self.capture_pv)
+                acquire = await read(self.acquire_rbv_pv)
+                logger.debug(f'capture, acquire = {capture}, {acquire}')
+                if not capture and not acquire:
+                    logger.info('switching to tv mode')
+                    await self.mode_pv.write(2)
+                    await self.acquire_pv.write(1, wait=False)
 
-            # self._capture_goal = read(self.hdf5_prefix + 'NumCapture').data
-            # write(self.shutter_prefix + 'TriggerEnabled', [int(value)])
-            # if value == 1:
+        @adjusted_num_images.putter
+        async def adjusted_num_images(self, instance, value):
+            write(self.parent.prefix + 'HDF1:NumCapture', value)
+            write(self.parent.camera_prefix + 'NumImages', value)
 
-            # print(f'comparing: {value} {instance.value}')
+        @adjusted_acquire_time.putter
+        async def adjusted_acquire_time(self, instance, value):
+            readout_time = self.readout_time.value
+            open_delay = self.open_delay.value
+            close_delay = self.close_delay.value
 
-            # toggle Acquire pv; this closes the current file and is necessary to inform bluesky that the HDF plugin is
-            # finished writing
-            if value != instance.value:
-                write(self.parent.camera_prefix + 'Acquire', [0])
-                await self.async_lib.library.sleep(.1)
-                write(self.parent.hdf5_prefix + 'Capture', [value])
-                write(self.parent.camera_prefix + 'Acquire', [1])
-                await self.async_lib.library.sleep(.1)
+            if not open_delay + value + readout_time <= self.adjusted_acquire_period.value:  # NOTE: close_delay is not included here because it is done during exposure
+                await self.adjusted_acquire_period.write(open_delay + value + readout_time)
+
+            write(self.parent.camera_prefix + 'AcquireTime', value)  # TODO: change to async write
+
+            shutter_enabled = self.parent.Shutter.shutter_enabled.value
+            if shutter_enabled == 0:  # Trigger
+                set_shutter_time_s(open_delay + value - close_delay)
+            elif shutter_enabled == 1: # Open
+                ...#?
+            elif shutter_enabled == 2:
+                set_shutter_time_s(0)
+
             return value
 
-        @AdjustedAcquireTime.setpoint.putter
-        async def AdjustedAcquireTime(self, instance, value):
-            readout_time = self.parent.ReadoutTime.value
-            open_delay = (await self.parent.open_delay_pv.read()).data[0]
-            close_delay = (await self.parent.close_delay_pv.read()).data[0]
+        @adjusted_acquire_period.putter
+        async def adjusted_acquire_period(self, instance, value):
+            readout_time = self.readout_time.value
+            open_delay = self.open_delay.value
+            close_delay = self.close_delay.value
 
-            if not open_delay + value + close_delay + readout_time <= self.parent.AdjustedAcquirePeriod.readback.value:
-                await self.parent.AdjustedAcquirePeriod.setpoint.write(open_delay + value + close_delay + readout_time)
+            if not value - open_delay - readout_time >= self.adjusted_acquire_time.value:
+                await self.adjusted_acquire_time.write(value - open_delay - readout_time)
 
-            write(self.parent.parent.camera_prefix + 'AcquireTime', value + close_delay + open_delay)
-            write(self.parent.parent.shutter_prefix + 'ShutterTime', value + open_delay)
+            write(self.parent.camera_prefix + 'AcquirePeriod', value)
 
-            await self.readback.write(value)
-            return value
-
-        @AdjustedAcquirePeriod.setpoint.putter
-        async def AdjustedAcquirePeriod(self, instance, value):
-            readout_time = self.parent.ReadoutTime.value
-            open_delay = (await self.parent.open_delay_pv.read()).data[0]
-            close_delay = (await self.parent.close_delay_pv.read()).data[0]
-
-            if not value - open_delay - close_delay - readout_time >= self.parent.AdjustedAcquireTime.readback.value:
-                await self.parent.AdjustedAcquireTime.setpoint.write(value - open_delay - close_delay - readout_time)
-
-            write(self.parent.parent.camera_prefix + 'AcquirePeriod', value)
-            write(self.parent.parent.shutter_prefix + 'TriggerRate', 1. / value)
-
-            await self.readback.write(value)
+            # await self.write(value)
             return value
 
         @Initialize.scan(period=1)
@@ -213,27 +224,26 @@ class FCCDSupport(PVGroup):
                 A_temp = 999
                 B_temp = 999
 
-            # print('B Temp:', B_temp, type(B_temp))
             if self.AutoStart.value == 'On' \
                 and self.State.value in ['Off', 'Unknown'] \
                 and not self._active_subprocess \
                 and (B_temp < 0) and (A_temp < 0):
                 await self.fccd_initialize(None, None)
             elif self.State.value == 'Initialized' and not self._active_subprocess and ((B_temp > 2) or (A_temp > 2)):
+                logger.critical(f'Temps above operational threshold (2 C): {A_temp}, {B_temp}')
                 needs_shutdown = True
 
             if self._active_subprocess:
-                print(f'checking subprocess: {" ".join(self._active_subprocess.args)}')
+                logger.debug(f'checking subprocess: {" ".join(self._active_subprocess.args)}')
                 return_code = self._active_subprocess.poll()
                 if return_code is not None:
                     completion_state = self._subprocess_completion_state
                     if return_code == 0:
-                        print('Successful background process')
+                        logger.info(f'Successful background process: {" ".join(self._active_subprocess.args)}')
                         await self.State.write(completion_state)
-                        await self.State.startup(None, None)
                     elif return_code > 0:
                         error = self._active_subprocess.stderr.read().decode()
-                        print(error)
+                        logger.error(error)
                         await self.ErrorStatus.write(error)
                         await self.ErrorStatus.write('')
                         needs_shutdown = True
@@ -245,7 +255,9 @@ class FCCDSupport(PVGroup):
                 self._subprocess_completion_state = None
                 await self.fccd_shutdown(None, None)
 
-        ReadoutTime = pvproperty(dtype=float, value=.050)
+        readout_time = pvproperty(dtype=float, value=.050)
+        open_delay = pvproperty(dtype=float, value=0.0035)
+        close_delay = pvproperty(dtype=float, value=0.0035)
 
         ErrorStatus = pvproperty(dtype=str, value="", read_only=True)
         AutoStart = pvproperty(dtype=bool, value='Off')  # value='On')
@@ -263,7 +275,7 @@ class FCCDSupport(PVGroup):
         @BiasState.putter
         async def BiasState(self, instance, value):
             if value != instance.value:
-                print(f"setting state: {value}")
+                logger.info(f"setting bias state: {value}")
 
                 if value == "Powering On...":
                     value = await self._power_on_bias(None, None)
@@ -280,13 +292,13 @@ class FCCDSupport(PVGroup):
                 # wait longer than 3s - psu ioc scans every 3 seconds
                 await self.async_lib.library.sleep(4)
                 power_check_with_bias_clocks()
-                print(f"Powered On")
+                logger.info(f"Powered On")
                 return "On"
 
         async def _power_off_bias(self, instance, value):
             async with com_lock:
                 utils.scripts.setClocksBiasOff()
-                print(f"Powered Off")
+                logger.info(f"Powered Off")
                 return "Off"
 
         async def power_on_bias(self, instance, value):

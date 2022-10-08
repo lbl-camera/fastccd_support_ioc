@@ -57,10 +57,9 @@ cin_functions.loadCameraConfigFile(config_dir + "TimingConfig.txt")
 
 time.sleep(3)
 
-print("\nSet Trigger Mux to accept external triggers on FP Trigger Input 1 Only")
-import setTrigger0  # Maps to Front Panel Trigger Input 1
 
-import setTriggerOR
+import setTriggerSW
+import sendShutter2Trig2Out
 
 # Set Exposure Time to 1ms
 cin_functions.WriteReg("8206", "0000", 1)  # MS Byte
