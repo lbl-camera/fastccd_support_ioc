@@ -6,13 +6,10 @@ import sys
 from caproto.server import ioc_arg_parser, run
 from caproto.sync.client import write, read
 from caproto.asyncio.client import Context, PV
-from pip._internal import main
-main(['install', 'loguru'])
 from loguru import logger
 
 from . import utils, pvproperty_with_rbv, wrap_autosave, FastAutosaveHelper
 from .utils.protection_checks import power_check_no_bias_clocks, power_check_with_bias_clocks
-from .utils.cin_functions import ReadReg
 from .cin.shutter import set_shutter_time_s
 
 DEFAULT_ACQUIRETIME = 1
@@ -45,13 +42,28 @@ class FCCDSupport(PVGroup):
         @shutter_enabled.putter
         async def shutter_enabled(self, instance, value):
             value = value.upper()
+
             logger.debug(f'setting shutter_enabled state: {value}')
+            # Get Value from Clock Configuration 0 Register
+            reg_val = utils.cin_functions.ReadReg(utils.cin_register_map.REG_CLOCKCONFIGREGISTER0_REG)
+            # print reg_val
+            the_string = str(reg_val[4:8])
+            # print the_string
+            the_masked_hex = hex(int(the_string, 16) & int("FFF3", 16))
+            # print (the_masked_hex)
+
             if value == 'TRIGGER':
-                await self.parent.Cam.adjusted_acquire_time.write(self.parent.Cam.adjusted_acquire_time.value)  # re-write current value to update shutter
+                the_new_hex = hex(int(the_masked_hex, 16) | int("0", 16))
             elif value == 'CLOSED':
-                await self.parent.Cam.adjusted_acquire_time.write(self.parent.Cam.adjusted_acquire_time.value)  # re-write current value to update shutter
+                the_new_hex = hex(int(the_masked_hex, 16) | int("8", 16))
             elif value == 'OPEN':
-                raise NotImplementedError()
+                the_new_hex = hex(int(the_masked_hex, 16) | int("C", 16))
+            # print (the_new_hex)
+            str_val = '%04x' % int(the_new_hex, 16)
+            # print(str_val)
+            utils.cin_functions.WriteReg(utils.cin_register_map.REG_CLOCKCONFIGREGISTER0_REG, str_val, 1)
+
+    # TODO: implement getter
 
     @SubGroup(prefix='cam1:')
     class Cam(PVGroup):
@@ -184,18 +196,23 @@ class FCCDSupport(PVGroup):
             open_delay = self.open_delay.value
             close_delay = self.close_delay.value
 
-            if not open_delay + value + readout_time <= self.adjusted_acquire_period.value:  # NOTE: close_delay is not included here because it is done during exposure
-                await self.adjusted_acquire_period.write(open_delay + value + readout_time)
+            value = max(value, 1e-3)  # smallest settable exposure time is 0.001
 
-            write(self.parent.camera_prefix + 'AcquireTime', value)  # TODO: change to async write
+            if not value + readout_time <= self.adjusted_acquire_period.value:  # NOTE: close_delay and open_delay are no longer included here because it is done during exposure
+                await self.adjusted_acquire_period.write(value + readout_time)
+
+            # NOTE: ADFastCCD incorrectly sets exposure time, so we have to do it directly
+            # write(self.parent.camera_prefix + 'AcquireTime', value)  # TODO: change to async write
+
+            exp_time_d = int(value*32)  #inc is 2x CCD clock
+            exp_time_h = str(hex(int(exp_time_d*1000))).lstrip("0x").zfill(8)
+            logger.critical(f'value: {value} -> {exp_time_h}')
+            utils.cin_functions.WriteReg(utils.cin_register_map.REG_EXPOSURETIMEMSB_REG, exp_time_h[0:4], 1)
+            utils.cin_functions.WriteReg(utils.cin_register_map.REG_EXPOSURETIMELSB_REG, exp_time_h[4:], 1)
 
             shutter_enabled = self.parent.Shutter.shutter_enabled.value
-            if shutter_enabled == 0:  # Trigger
-                set_shutter_time_s(open_delay + value - close_delay)
-            elif shutter_enabled == 1: # Open
-                ...#?
-            elif shutter_enabled == 2:
-                set_shutter_time_s(0)
+
+            set_shutter_time_s(value - close_delay)
 
             return value
 
@@ -205,8 +222,8 @@ class FCCDSupport(PVGroup):
             open_delay = self.open_delay.value
             close_delay = self.close_delay.value
 
-            if not value - open_delay - readout_time >= self.adjusted_acquire_time.value:
-                await self.adjusted_acquire_time.write(value - open_delay - readout_time)
+            if not value - readout_time >= self.adjusted_acquire_time.value:
+                await self.adjusted_acquire_time.write(value - readout_time)
 
             write(self.parent.camera_prefix + 'AcquirePeriod', value)
 
@@ -257,7 +274,7 @@ class FCCDSupport(PVGroup):
 
         readout_time = pvproperty(dtype=float, value=.050)
         open_delay = pvproperty(dtype=float, value=0.0035)
-        close_delay = pvproperty(dtype=float, value=0.0035)
+        close_delay = pvproperty(dtype=float, value=0.0035*2)  # original measured value was 0.0034; doubled to potentially correct for internal offset in fastccd shutter signal output
 
         ErrorStatus = pvproperty(dtype=str, value="", read_only=True)
         AutoStart = pvproperty(dtype=bool, value='Off')  # value='On')
