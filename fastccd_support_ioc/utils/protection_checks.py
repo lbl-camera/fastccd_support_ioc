@@ -58,7 +58,7 @@ def power_check_with_bias_clocks():
 
     try:
         # Current checks
-        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Current'), .19, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Current'), .19, percent=.3)
         assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Current'), .19, percent=.2)
         assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out3:Current'), .05,
                              percent=.6)  # NOTE: this value is increased when bias/clocks on
