@@ -1,3 +1,5 @@
+import asyncio
+
 from caproto.server import PVGroup, SubGroup, pvproperty, get_pv_pair_wrapper
 from caproto import ChannelType
 
@@ -69,9 +71,6 @@ class FCCDSupport(PVGroup):
     class Cam(PVGroup):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.capture_pv = None
-            self.acquire_pv = None
-            self.acquire_rbv_pv = None
             self._active_subprocess = None
             self._subprocess_completion_state = None
             self.A_temp_pv = None
@@ -82,12 +81,6 @@ class FCCDSupport(PVGroup):
         @startup.startup
         async def startup(self, instance, async_lib):
             self._context = Context()
-            self.acquire_rbv_pv, = await self._context.get_pvs(self.prefix + 'Acquire_RBV')
-            self.acquire_pv, = await self._context.get_pvs(self.prefix + 'Acquire')
-            self.capture_pv, = await self._context.get_pvs(self.parent.prefix + 'HDF1:Capture_RBV')
-            self.mode_pv, = await self._context.get_pvs(self.prefix + 'ImageMode')
-            self.acquire_rbv_sub = self.acquire_rbv_pv.subscribe(data_type=ChannelType.INT)
-            self.acquire_rbv_sub.add_callback(self.acquire_finished)
             self.A_temp_pv, = await self._context.get_pvs(self.parent.prefix + 'TemperatureCelsiusA')
             self.B_temp_pv, = await self._context.get_pvs(self.parent.prefix + 'TemperatureCelsiusB')
 
@@ -150,40 +143,9 @@ class FCCDSupport(PVGroup):
                                                     precision=3, units='s')
 
         adjusted_acquire = pvproperty_with_rbv(value=0, dtype=int)
-        adjusted_num_images = pvproperty(value=0, dtype=int)
+        adjusted_num_images = pvproperty(value=1, dtype=int)
 
         TestFrameMode = pvproperty(value=False, dtype=bool)
-
-        async def acquire_finished(self, pv, response):
-            if response.data[0] == 0:
-                await self.adjusted_acquire.readback.write(0)
-                await self.adjusted_acquire.setpoint.write(0)
-
-        @adjusted_acquire.setpoint.putter
-        async def adjusted_acquire(self, instance, value):
-            await self.parent.acquire_pv.write(0, wait=False)
-            if value:
-                logger.debug('switching to acquire mode')
-                await self.parent.mode_pv.write(1)
-            await self.parent.acquire_pv.write(value, wait=False)
-
-        @adjusted_acquire.readback.getter
-        async def adjusted_acquire(self, instance):
-            return await read(self.parent.acquire_rbv_pv)
-
-        # @adjusted_acquire.readback.scan(period=2)
-        # async def adjusted_acquire(self, instance, async_lib):
-        @Shutdown.scan(period=2)
-        async def Shutdown(self, instance, async_lib):  # TODO: find out how to associate this with adjusted_acquire.readback
-            # if not acquiring or capturing
-            if self.capture_pv and self.acquire_rbv_pv:
-                capture = await read(self.capture_pv)
-                acquire = await read(self.acquire_rbv_pv)
-                logger.debug(f'capture, acquire = {capture}, {acquire}')
-                if not capture and not acquire:
-                    logger.info('switching to tv mode')
-                    await self.mode_pv.write(2)
-                    await self.acquire_pv.write(1, wait=False)
 
         @adjusted_num_images.putter
         async def adjusted_num_images(self, instance, value):
