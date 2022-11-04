@@ -35,8 +35,8 @@ def power_check_no_bias_clocks():
         assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Current'), .125, percent=.2)
         assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out3:Current'), .03, percent=.2)
         assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out4:Current'), .03, percent=.2)
-        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out1:Current'), 3, percent=.5)
-        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out2:Current'), 2, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out1:Current'), 5, percent=.5)
+        assert _within_range(read_scalar('ES7011:FastCCD:FCRICFOPSPSU:Out2:Current'), 2, percent=.5)
     except AssertionError:
         raise AssertionError('A PSU current is outside acceptable range!')
 
@@ -58,8 +58,8 @@ def power_check_with_bias_clocks():
 
     try:
         # Current checks
-        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Current'), .19, percent=.3)
-        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Current'), .19, percent=.2)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out1:Current'), .19, percent=.4)
+        assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out2:Current'), .19, percent=.4)
         assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out3:Current'), .05,
                              percent=.6)  # NOTE: this value is increased when bias/clocks on
         assert _within_range(read_scalar('ES7011:FastCCD:BiasClocksPSU:Out4:Current'), .3,
