@@ -49,7 +49,7 @@ async def ibterm_write(command, value, caster=None, confirm=True):
     if not confirm:
         return
     for i in range(100):
-        if round(value, 2) == round(await ibterm_read(f'{command}', caster or type(value)), 2):
+        if abs(value - (await ibterm_read(f'{command}', caster or type(value)))) < .01:
             break
         await ibterm_read(f'{command},{value}', caster)
     else:
